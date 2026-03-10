@@ -14,6 +14,12 @@ export default defineSchema({
     goal: v.optional(v.string()),
     calories: v.optional(v.float64()),
     proteins: v.optional(v.float64()),
+    bmr: v.optional(v.float64()),
+    maintenance: v.optional(v.float64()),
+    activityLevel: v.optional(v.string()),
+    carbs: v.optional(v.float64()),
+    fats: v.optional(v.float64()),
+    fiber: v.optional(v.float64()),
   }).index("by_email", ["email"]),
 
   recipes: defineTable({
@@ -31,5 +37,8 @@ export default defineSchema({
     status: v.optional(v.boolean()),
     calories: v.optional(v.number()),
     proteins: v.optional(v.number()),
+    carbs: v.optional(v.number()),
+    fats: v.optional(v.number()),
+    fiber: v.optional(v.number()),
   }),
 });

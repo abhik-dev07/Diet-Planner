@@ -12,13 +12,12 @@ import { useMutation } from "convex/react";
 import { useContext, useState } from "react";
 import {
   Alert,
-  FlatList,
   Platform,
   Text,
+  ToastAndroid,
   TouchableOpacity,
-  View,
+  View
 } from "react-native";
-import Toast from "react-native-toast-message";
 import Button from "../shared/Button";
 import DateSelectionCard from "../shared/DateSelectionCard";
 
@@ -64,16 +63,7 @@ export default function AddToMealActionSheet({
     if (Platform.OS === "ios") {
       Alert.alert("Added!", "Added to meal plan");
     } else {
-      Toast.show({
-        type: "custom",
-        text1: "Added!",
-        text2: "Added to meal plan",
-        position: "bottom",
-        visibilityTime: 2500,
-        props: {
-          icon: "🥳",
-        },
-      });
+      ToastAndroid.show("Added to meal plan 🥳", ToastAndroid.SHORT);
     }
     setRefreshData(Date.now());
     hideActionSheet();
@@ -100,7 +90,7 @@ export default function AddToMealActionSheet({
       >
         Select Meal
       </Text>
-      <FlatList
+      <BottomSheetFlatList
         data={mealOption}
         numColumns={4}
         renderItem={({ item, index }) => (

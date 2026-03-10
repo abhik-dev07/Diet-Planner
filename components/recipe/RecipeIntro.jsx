@@ -1,4 +1,3 @@
-import AddToMealActionSheet from "@/components/recipe/AddToMealActionSheet";
 import Colors from "@/shared/Colors";
 import {
   Dumbbell01Icon,
@@ -7,13 +6,10 @@ import {
   TimeQuarter02Icon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react-native";
-import { useRef } from "react";
 import { Image, StyleSheet, Text, TouchableOpacity, View } from "react-native";
-import ActionSheet from "react-native-actions-sheet";
 
-export default function RecipeIntro({ recipeDetail }) {
+export default function RecipeIntro({ recipeDetail, showActionSheet }) {
   const RecipeJson = recipeDetail?.jsonData;
-  const actionSheetRef = useRef(null);
   return (
     <View>
       <Image
@@ -44,7 +40,7 @@ export default function RecipeIntro({ recipeDetail }) {
         >
           {recipeDetail?.recipeName}
         </Text>
-        <TouchableOpacity onPress={() => actionSheetRef.current.show()}>
+        <TouchableOpacity onPress={() => showActionSheet && showActionSheet()}>
           <HugeiconsIcon
             icon={PlusSignSquareIcon}
             size={40}
@@ -104,12 +100,51 @@ export default function RecipeIntro({ recipeDetail }) {
           <Text style={styles.counts}>{RecipeJson?.cookTime} Min</Text>
         </View>
       </View>
-      <ActionSheet ref={actionSheetRef}>
-        <AddToMealActionSheet
-          recipeDetail={recipeDetail}
-          hideActionSheet={() => actionSheetRef.current.hide()}
-        />
-      </ActionSheet>
+
+      {/* Nutritional Insights */}
+      {RecipeJson?.insights && (
+        <View style={styles.insightsContainer}>
+          <View style={styles.healthRow}>
+            <Text style={styles.healthLabel}>AI Health Score</Text>
+            <Text style={styles.healthValue}>
+              {RecipeJson?.insights?.healthScore}/100
+            </Text>
+          </View>
+
+          <View style={styles.macroBar}>
+            <View
+              style={{
+                flex: RecipeJson?.insights?.distribution?.proteinPct || 0,
+                backgroundColor: Colors.BLUE,
+              }}
+            />
+            <View
+              style={{
+                flex: RecipeJson?.insights?.distribution?.fatPct || 0,
+                backgroundColor: "#EAB308",
+              }}
+            />
+            <View
+              style={{
+                flex: RecipeJson?.insights?.distribution?.carbsPct || 0,
+                backgroundColor: "#22C55E",
+              }}
+            />
+          </View>
+
+          <View style={styles.macroLabelContainer}>
+            <Text style={[styles.macroLabel, { color: Colors.BLUE }]}>
+              {RecipeJson?.insights?.distribution?.proteinPct}% Prot
+            </Text>
+            <Text style={[styles.macroLabel, { color: "#854D0E" }]}>
+              {RecipeJson?.insights?.distribution?.fatPct}% Fat
+            </Text>
+            <Text style={[styles.macroLabel, { color: "#166534" }]}>
+              {RecipeJson?.insights?.distribution?.carbsPct}% Carb
+            </Text>
+          </View>
+        </View>
+      )}
     </View>
   );
 }
@@ -134,5 +169,45 @@ const styles = StyleSheet.create({
     color: Colors.PRIMARY,
     fontWeight: "bold",
     textAlign: "center",
+  },
+  insightsContainer: {
+    marginTop: 20,
+    backgroundColor: "#fff9f9",
+    padding: 15,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: "#ffe4e6",
+  },
+  healthRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 12,
+  },
+  healthLabel: {
+    fontSize: 18,
+    fontWeight: "600",
+    color: "#e11d48",
+  },
+  healthValue: {
+    fontSize: 22,
+    fontWeight: "bold",
+    color: "#e11d48",
+  },
+  macroBar: {
+    height: 10,
+    flexDirection: "row",
+    borderRadius: 5,
+    overflow: "hidden",
+    backgroundColor: "#eee",
+  },
+  macroLabelContainer: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginTop: 8,
+  },
+  macroLabel: {
+    fontSize: 14,
+    fontWeight: "500",
   },
 });

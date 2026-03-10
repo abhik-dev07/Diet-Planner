@@ -4,7 +4,7 @@ import { UserContext } from "@/context/UserContext";
 import { api } from "@/convex/_generated/api";
 import Colors from "@/shared/Colors";
 import { useQuery } from "convex/react";
-import React, { useContext } from "react";
+import { useContext } from "react";
 import { ActivityIndicator, FlatList, Text, View } from "react-native";
 
 export default function Meals() {
@@ -27,7 +27,7 @@ export default function Meals() {
         <View
           style={{
             padding: 20,
-            paddingTop: 55,
+            paddingTop: 45,
           }}
         >
           <Text

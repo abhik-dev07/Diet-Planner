@@ -3,9 +3,14 @@ import { GenerateRecipe } from "@/services/AiModel";
 import Colors from "@/shared/Colors";
 import Prompt from "@/shared/Prompt";
 import Ionicons from "@expo/vector-icons/Ionicons";
+import { BottomSheetModal, BottomSheetView } from "@gorhom/bottom-sheet";
 import { useRouter } from "expo-router";
-import React, { useState, useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
+  Alert,
+  Animated,
+  Keyboard,
+  KeyboardAvoidingView,
   Platform,
   ScrollView,
   StyleSheet,
@@ -13,9 +18,6 @@ import {
   TextInput,
   TouchableOpacity,
   View,
-  KeyboardAvoidingView,
-  Keyboard,
-  Animated,
 } from "react-native";
 import EmptyRecipeState from "../../components/recipe/EmptyRecipeState";
 import RecipeOptionList from "../../components/recipe/RecipeOptionList";
@@ -26,6 +28,11 @@ export default function GenerateAiRecipe() {
   const [loading, setLoading] = useState(false);
   const [recipeOption, setRecipeOption] = useState(null);
   const paddingAnim = useRef(new Animated.Value(0)).current;
+  const bottomSheetModalRef = useRef(null);
+
+  const handlePresentModalPress = () => {
+    bottomSheetModalRef.current?.present();
+  };
 
   const GenerateRecipeOptions = async () => {
     if (loading) return;
@@ -34,19 +41,30 @@ export default function GenerateAiRecipe() {
     try {
       const PROMPT = input + Prompt.GENERATE_RECIPE_OPTION_PROMPT;
       const result = await GenerateRecipe(PROMPT);
-      const extractJson =
-        result.data.candidates?.[0]?.content?.parts?.[0]?.text || "{}";
-      const jsonMatch = extractJson.match(/```json\n([\s\S]*?)\n```/);
-      if (!jsonMatch) {
-        throw new Error("Ai response dose not contain JSON");
-      }
-      const jsonString = jsonMatch[1];
-      const parsedJsonResp = JSON.parse(jsonString || "{}");
+      console.log("Direct AI Response:", result);
 
-      console.log(parsedJsonResp);
-      setRecipeOption(parsedJsonResp);
-    } catch (e) {
-      console.log(e);
+      if (result && result.length > 0) {
+        setRecipeOption(result);
+        handlePresentModalPress();
+      } else {
+        Alert.alert("No recipes found", "AI could not generate specific options for this prompt. Try being more descriptive!");
+      }
+    } catch (error) {
+      console.log("Recipe Generation Error:", error);
+      const status = error.response?.status;
+      const errorMsg = error.response?.data?.error || error.message;
+
+      if (status === 429) {
+        Alert.alert(
+          "Too Many Requests",
+          "The AI is a bit busy right now. Please wait a moment (about 1 minute) and try again."
+        );
+      } else {
+        Alert.alert(
+          "Error",
+          `Something went wrong: ${errorMsg}`
+        );
+      }
     } finally {
       setLoading(false);
     }
@@ -134,13 +152,26 @@ export default function GenerateAiRecipe() {
               />
             </View>
             {recipeOption && recipeOption.length > 0 ? (
-              <RecipeOptionList RecipeOption={recipeOption} />
+              <Text style={{ marginTop: 20, color: Colors.GRAY, textAlign: 'center' }}>
+                Found {recipeOption.length} options. Use the sheet below to choose!
+              </Text>
             ) : (
               <EmptyRecipeState />
             )}
           </View>
         </ScrollView>
       </Animated.View>
+
+      <BottomSheetModal
+        ref={bottomSheetModalRef}
+        index={0}
+        snapPoints={["60%", "85%"]}
+        enablePanDownToClose={true}
+      >
+        <BottomSheetView style={{ flex: 1, padding: 20 }}>
+          <RecipeOptionList RecipeOption={recipeOption} />
+        </BottomSheetView>
+      </BottomSheetModal>
     </KeyboardAvoidingView>
   );
 }

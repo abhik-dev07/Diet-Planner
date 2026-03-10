@@ -1,5 +1,4 @@
 import { UserContext } from "@/context/UserContext";
-import { auth } from "@/services/FirebaseConfig";
 import Colors from "@/shared/Colors";
 import {
   AnalyticsUpIcon,
@@ -8,8 +7,8 @@ import {
   ServingFoodIcon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react-native";
+import { GoogleSignin } from "@react-native-google-signin/google-signin";
 import { useRouter } from "expo-router";
-import { signOut } from "firebase/auth";
 import { useContext } from "react";
 import { FlatList, Image, Text, TouchableOpacity, View } from "react-native";
 
@@ -40,13 +39,17 @@ export default function Profile() {
   const { user, setUser } = useContext(UserContext);
   const router = useRouter();
 
-  const OnMenuOptionClick = (menu) => {
+  const OnMenuOptionClick = async (menu) => {
     if (menu.path === "logout") {
-      signOut(auth).then(() => {
-        console.log("Sign-out");
+      try {
+        await GoogleSignin.revokeAccess();
+        await GoogleSignin.signOut();
+        console.log("Logged out successfully");
         setUser(null);
         router.replace("/");
-      });
+      } catch (error) {
+        console.log("Sign-out error:", error);
+      }
       return;
     }
     router.push(menu?.path);
@@ -55,7 +58,7 @@ export default function Profile() {
     <View
       style={{
         padding: 20,
-        paddingTop: 55,
+        paddingTop: 40,
         backgroundColor: Colors.SECONDARY,
         height: "100%",
       }}
@@ -77,7 +80,11 @@ export default function Profile() {
         }}
       >
         <Image
-          source={require("../../assets/images/user.png")}
+          source={
+            user?.picture
+              ? { uri: user.picture }
+              : require("../../assets/images/user.png")
+          }
           style={{
             width: 100,
             height: 100,

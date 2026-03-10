@@ -5,25 +5,25 @@ export const CreateNewUser = mutation({
   args: {
     email: v.string(),
     name: v.string(),
+    picture: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const user = await ctx.db
       .query("users")
-      .filter((q) => q.eq(q.field("email"), args.email))
-      .collect();
+      .withIndex("by_email", (q) => q.eq("email", args.email))
+      .unique();
 
-    if (user?.length == 0) {
+    if (!user) {
       const data = {
         name: args.name,
         email: args.email,
+        picture: args.picture,
         credits: 10,
       };
-      const result = await ctx.db.insert("users", {
-        ...data,
-      });
-      return data;
+      const result = await ctx.db.insert("users", data);
+      return { ...data, _id: result };
     }
-    return user[0];
+    return user;
   },
 });
 
@@ -32,11 +32,10 @@ export const GetUser = query({
     email: v.string(),
   },
   handler: async (ctx, args) => {
-    const user = await ctx.db
+    return await ctx.db
       .query("users")
-      .filter((q) => q.eq(q.field("email"), args.email))
-      .collect();
-    return user[0];
+      .withIndex("by_email", (q) => q.eq("email", args.email))
+      .unique();
   },
 });
 
@@ -48,6 +47,12 @@ export const UpdateUserPref = mutation({
     goal: v.string(),
     calories: v.optional(v.float64()),
     proteins: v.optional(v.float64()),
+    bmr: v.optional(v.float64()),
+    maintenance: v.optional(v.float64()),
+    activityLevel: v.optional(v.string()),
+    carbs: v.optional(v.float64()),
+    fats: v.optional(v.float64()),
+    fiber: v.optional(v.float64()),
     email: v.string(),
   },
   handler: async (ctx, args) => {
@@ -69,6 +74,12 @@ export const UpdateUserPref = mutation({
       gender: args.gender,
       calories: args.calories,
       proteins: args.proteins,
+      bmr: args.bmr,
+      maintenance: args.maintenance,
+      activityLevel: args.activityLevel,
+      carbs: args.carbs,
+      fats: args.fats,
+      fiber: args.fiber,
     });
   },
 });

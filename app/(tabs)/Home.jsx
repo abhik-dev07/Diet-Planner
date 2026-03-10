@@ -5,7 +5,7 @@ import TodaysMealPlan from "@/components/home/TodaysMealPlan";
 import { UserContext } from "@/context/UserContext";
 import Colors from "@/shared/Colors";
 import { useRouter } from "expo-router";
-import React, { useContext, useEffect, useRef } from "react";
+import { useContext, useEffect, useRef } from "react";
 import { FlatList, View } from "react-native";
 
 export default function Home() {
@@ -29,7 +29,7 @@ export default function Home() {
       }}
       showsVerticalScrollIndicator={false}
       ListHeaderComponent={
-        <View style={{ padding: 20, marginTop: 55 }}>
+        <View style={{ padding: 20, marginTop: 40 }}>
           <HomeHeader />
           <TodayProgress />
           <GanerateRecipeCard />

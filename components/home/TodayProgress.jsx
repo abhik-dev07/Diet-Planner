@@ -7,322 +7,267 @@ import { useConvex } from "convex/react";
 import { LinearGradient } from "expo-linear-gradient";
 import moment from "moment";
 import { useContext, useEffect, useRef, useState } from "react";
-import { Animated, Text, View } from "react-native";
+import { Animated, StyleSheet, Text, View } from "react-native";
 import { UserContext } from "../../context/UserContext";
 
 export default function TodayProgress() {
   const { user } = useContext(UserContext);
   const convex = useConvex();
-  const [totalConsumedCalories, setTotalConsumedCalories] = useState(0);
-  const [totalConsumedProteins, setTotalConsumedProteins] = useState(0);
   const { refreshData } = useContext(RefreshDataContext);
 
-  const [animatedCalories] = useState(new Animated.Value(0));
-  const [animatedProteins] = useState(new Animated.Value(0));
+  const [consumed, setConsumed] = useState({
+    calories: 0,
+    proteins: 0,
+    carbs: 0,
+    fats: 0,
+    fiber: 0,
+  });
 
-  const [prevCalories, setPrevCalories] = useState(0);
-  const [prevProteins, setPrevProteins] = useState(0);
-
-  const fadeCalorieMessage = useRef(new Animated.Value(0)).current;
-  const fadeProteinMessage = useRef(new Animated.Value(0)).current;
-
-  // NEW: Scale Animated values for icons
-  const [scaleCalorieIcon] = useState(new Animated.Value(1));
-  const [scaleProteinIcon] = useState(new Animated.Value(1));
+  const animatedValues = {
+    calories: useRef(new Animated.Value(0)).current,
+    proteins: useRef(new Animated.Value(0)).current,
+    carbs: useRef(new Animated.Value(0)).current,
+    fats: useRef(new Animated.Value(0)).current,
+    fiber: useRef(new Animated.Value(0)).current,
+  };
 
   useEffect(() => {
     if (user) {
-      GetTotalCaloriesConsumed();
-      GetTotalProteinsConsumed();
+      FetchConsumedMetrics();
     }
   }, [user, refreshData]);
 
-  const fadeInOut = (fadeAnim) => {
-    Animated.sequence([
-      Animated.timing(fadeAnim, {
-        toValue: 1,
-        duration: 300,
-        useNativeDriver: true,
-      }),
-      Animated.delay(2000),
-      Animated.timing(fadeAnim, {
-        toValue: 0,
-        duration: 300,
-        useNativeDriver: true,
-      }),
-    ]).start();
-  };
-
-  // NEW: Bounce animation helper
-  const bounceIcon = (animatedValue) => {
-    Animated.sequence([
-      Animated.timing(animatedValue, {
-        toValue: 1.4,
-        duration: 200,
-        useNativeDriver: true,
-      }),
-      Animated.timing(animatedValue, {
-        toValue: 1,
-        duration: 200,
-        useNativeDriver: true,
-      }),
-    ]).start();
-  };
-
-  const GetTotalCaloriesConsumed = async () => {
-    const result = await convex.query(api.MealPlan.GetTotalCaloriesConsumed, {
+  const FetchConsumedMetrics = async () => {
+    const result = await convex.query(api.MealPlan.GetTotalConsumedMetrics, {
       date: moment().format("DD/MM/YYYY"),
       uid: user?._id,
     });
-    setTotalConsumedCalories(result);
 
-    const percentage =
-      user?.calories && result
-        ? Math.min((result / user.calories) * 100, 100)
-        : 0;
-
-    const prevPercentage =
-      user?.calories && prevCalories
-        ? Math.min((prevCalories / user.calories) * 100, 100)
-        : 0;
-
-    if (percentage > prevPercentage) {
-      fadeInOut(fadeCalorieMessage);
-      bounceIcon(scaleCalorieIcon); // Animate calorie icon bounce
+    if (result) {
+      setConsumed(result);
+      animateAll(result);
     }
-
-    setPrevCalories(result);
-
-    Animated.timing(animatedCalories, {
-      toValue: percentage,
-      duration: 500,
-      useNativeDriver: false,
-    }).start();
   };
 
-  const GetTotalProteinsConsumed = async () => {
-    const result = await convex.query(api.MealPlan.GetTotalProteinsConsumed, {
-      date: moment().format("DD/MM/YYYY"),
-      uid: user?._id,
+  const animateAll = (data) => {
+    const animations = Object.keys(data).map((key) => {
+      const target = user?.[key === 'proteins' ? 'proteins' : key] || 1;
+      const percentage = Math.min((data[key] / target) * 100, 100);
+      return Animated.timing(animatedValues[key], {
+        toValue: percentage,
+        duration: 800,
+        useNativeDriver: false,
+      });
     });
-    setTotalConsumedProteins(result);
-
-    const percentage =
-      user?.proteins && result
-        ? Math.min((result / user.proteins) * 100, 100)
-        : 0;
-
-    const prevPercentage =
-      user?.proteins && prevProteins
-        ? Math.min((prevProteins / user.proteins) * 100, 100)
-        : 0;
-
-    if (percentage > prevPercentage) {
-      fadeInOut(fadeProteinMessage);
-      bounceIcon(scaleProteinIcon); // Animate protein icon bounce
-    }
-
-    setPrevProteins(result);
-
-    Animated.timing(animatedProteins, {
-      toValue: percentage,
-      duration: 500,
-      useNativeDriver: false,
-    }).start();
+    Animated.parallel(animations).start();
   };
 
-  const animatedCaloriesWidth = animatedCalories.interpolate({
-    inputRange: [0, 100],
-    outputRange: ["0%", "100%"],
-  });
+  const MacroProgress = ({ label, consumed, target, color, animValue, icon, unit = "g" }) => {
+    const width = animValue.interpolate({
+      inputRange: [0, 100],
+      outputRange: ["0%", "100%"],
+    });
 
-  const animatedProteinsWidth = animatedProteins.interpolate({
-    inputRange: [0, 100],
-    outputRange: ["0%", "100%"],
-  });
+    return (
+      <View style={styles.macroContainer}>
+        <View style={styles.macroHeader}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+            <MaterialCommunityIcons name={icon} size={18} color={color} />
+            <Text style={styles.macroLabel}>{label}</Text>
+          </View>
+          <Text style={styles.macroValue}>
+            {consumed}/{target}{unit}
+          </Text>
+        </View>
+        <View style={styles.progressBarBg}>
+          <Animated.View style={[styles.progressBarFill, { width, backgroundColor: color }]}>
+            <LinearGradient
+              colors={[color, color + '99']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={{ flex: 1, borderRadius: 99 }}
+            />
+          </Animated.View>
+        </View>
+      </View>
+    );
+  };
 
   return (
-    <View
-      style={{
-        marginTop: 15,
-        padding: 15,
-        backgroundColor: Colors.WHITE,
-        borderRadius: 10,
-      }}
-    >
-      <View
-        style={{
-          flexDirection: "row",
-          justifyContent: "space-between",
-          alignItems: "center",
-        }}
-      >
-        <Text style={{ fontSize: 20, fontWeight: "bold" }}>Today's Goal</Text>
-        <Text style={{ fontSize: 18 }}>{moment().format("MMM DD, yyyy")}</Text>
+    <View style={styles.container}>
+      <View style={styles.header}>
+        <View>
+          <Text style={styles.title}>Today's Progress</Text>
+          <Text style={styles.subtitle}>{moment().format("MMMM DD, dddd")}</Text>
+        </View>
+        {/* <View style={styles.maintenanceBadge}>
+          <Text style={styles.maintenanceText}>Target BMR: {user?.bmr || 0}</Text>
+        </View> */}
       </View>
 
-      {/* Calories Section */}
-      <View>
-        <View
-          style={{
-            flexDirection: "row",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: 8,
-            marginTop: 10,
-          }}
+      <View style={styles.mainCalorieCard}>
+        <LinearGradient
+          colors={[Colors.PRIMARY, Colors.BLUE]}
+          style={styles.calorieGradient}
         >
-          {/* Animated Icon */}
-          <Animated.View
-            style={{
-              transform: [{ scale: scaleCalorieIcon }],
-              marginTop: 10,
-            }}
-          >
-            <MaterialCommunityIcons name="fire" size={30} color={Colors.RED} />
-          </Animated.View>
-
-          <AnimatedCounter
-            targetValue={totalConsumedCalories}
-            suffix={`/${user?.calories} Kcal`}
-            style={{
-              fontSize: 30,
-              fontWeight: "bold",
-              color: Colors.PRIMARY,
-              marginTop: 10,
-              textAlign: "center",
-            }}
-          />
-        </View>
-        <View
-          style={{
-            backgroundColor: Colors.GRAY,
-            height: 10,
-            borderRadius: 99,
-            marginTop: 15,
-            opacity: 0.7,
-            overflow: "hidden",
-          }}
-        >
-          <Animated.View
-            style={{
-              width: animatedCaloriesWidth,
-              height: 10,
-              borderRadius: 99,
-            }}
-          >
-            <LinearGradient
-              colors={[Colors.PRIMARY, Colors.BLUE]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={{
-                flex: 1,
-                borderRadius: 99,
-              }}
-            />
-          </Animated.View>
-        </View>
-        <View
-          style={{
-            flexDirection: "row",
-            justifyContent: "space-between",
-            marginTop: 5,
-          }}
-        >
-          <Text>Calories Consumed</Text>
-          <Text>Keep it up! 🙌</Text>
-        </View>
-
-        <Animated.Text
-          style={{
-            opacity: fadeCalorieMessage,
-            textAlign: "center",
-            marginTop: 15,
-            fontSize: 16,
-            fontWeight: "bold",
-            color: Colors.GREEN,
-          }}
-        >
-          You're doing great! 😉
-        </Animated.Text>
+          <View style={styles.calorieInfo}>
+            <MaterialCommunityIcons name="fire" size={40} color={Colors.WHITE} />
+            <View>
+              <AnimatedCounter
+                targetValue={consumed.calories}
+                suffix={` / ${user?.calories} kcal`}
+                style={styles.calorieCounter}
+              />
+              <Text style={styles.calorieLabel}>Calories Consumed</Text>
+            </View>
+          </View>
+          <View style={styles.maintenanceInfo}>
+            <Text style={styles.maintenanceSubText}>Daily Maintenance: {user?.maintenance} kcal</Text>
+          </View>
+        </LinearGradient>
       </View>
 
-      {/* Proteins Section */}
-      <View>
-        <View
-          style={{
-            flexDirection: "row",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: 10,
-            marginTop: 10,
-          }}
-        >
-          {/* Animated Icon */}
-          <Animated.View
-            style={{
-              transform: [{ scale: scaleProteinIcon }],
-              marginTop: 10,
-            }}
-          >
-            <MaterialCommunityIcons
-              name="dumbbell"
-              size={30}
-              color={Colors.RED}
-            />
-          </Animated.View>
-
-          <AnimatedCounter
-            targetValue={totalConsumedProteins}
-            suffix={`/${user?.proteins} g`}
-            style={{
-              fontSize: 30,
-              fontWeight: "bold",
-              color: Colors.PRIMARY,
-              marginTop: 10,
-              textAlign: "center",
-            }}
-          />
-        </View>
-        <View
-          style={{
-            backgroundColor: Colors.GRAY,
-            height: 10,
-            borderRadius: 99,
-            marginTop: 15,
-            opacity: 0.7,
-            overflow: "hidden",
-          }}
-        >
-          <Animated.View
-            style={{
-              width: animatedProteinsWidth,
-              height: 10,
-              borderRadius: 99,
-            }}
-          >
-            <LinearGradient
-              colors={[Colors.PRIMARY, Colors.BLUE]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={{
-                flex: 1,
-                borderRadius: 99,
-              }}
-            />
-          </Animated.View>
-        </View>
-        <View
-          style={{
-            flexDirection: "row",
-            justifyContent: "space-between",
-            marginTop: 5,
-          }}
-        >
-          <Text>Proteins Consumed</Text>
-          <Text>Keep it up! 🙌</Text>
-        </View>
+      <View style={styles.macrosGrid}>
+        <MacroProgress
+          label="Protein"
+          consumed={consumed.proteins}
+          target={user?.proteins || 0}
+          color={Colors.RED}
+          animValue={animatedValues.proteins}
+          icon="dumbbell"
+        />
+        <MacroProgress
+          label="Carbs"
+          consumed={consumed.carbs}
+          target={user?.carbs || 0}
+          color={Colors.BLUE}
+          animValue={animatedValues.carbs}
+          icon="barley"
+        />
+        <MacroProgress
+          label="Fats"
+          consumed={consumed.fats}
+          target={user?.fats || 0}
+          color={Colors.YELLOW || '#FFD700'}
+          animValue={animatedValues.fats}
+          icon="water-outline"
+        />
+        <MacroProgress
+          label="Fiber"
+          consumed={consumed.fiber}
+          target={user?.fiber || 0}
+          color={Colors.GREEN}
+          animValue={animatedValues.fiber}
+          icon="leaf"
+        />
       </View>
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    marginTop: 20,
+    padding: 20,
+    backgroundColor: Colors.WHITE,
+    borderRadius: 20,
+    elevation: 5,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 10,
+  },
+  header: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    marginBottom: 20,
+  },
+  title: {
+    fontSize: 22,
+    fontWeight: "bold",
+    color: Colors.DARK,
+  },
+  subtitle: {
+    fontSize: 14,
+    color: Colors.GRAY,
+    marginTop: 2,
+  },
+  maintenanceBadge: {
+    backgroundColor: Colors.SECONDARY,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 12,
+  },
+  maintenanceText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: Colors.PRIMARY,
+  },
+  mainCalorieCard: {
+    borderRadius: 15,
+    overflow: "hidden",
+    marginBottom: 25,
+  },
+  calorieGradient: {
+    padding: 20,
+  },
+  calorieInfo: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 15,
+  },
+  calorieCounter: {
+    fontSize: 24,
+    fontWeight: "bold",
+    color: Colors.WHITE,
+  },
+  calorieLabel: {
+    color: Colors.WHITE,
+    opacity: 0.9,
+    fontSize: 14,
+  },
+  maintenanceInfo: {
+    marginTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255,255,255,0.2)',
+    paddingTop: 10,
+  },
+  maintenanceSubText: {
+    color: Colors.WHITE,
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  macrosGrid: {
+    gap: 15,
+  },
+  macroContainer: {
+    width: "100%",
+  },
+  macroHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 8,
+  },
+  macroLabel: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: Colors.DARK,
+  },
+  macroValue: {
+    fontSize: 13,
+    color: Colors.GRAY,
+    fontWeight: "500",
+  },
+  progressBarBg: {
+    height: 8,
+    backgroundColor: "#F0F0F0",
+    borderRadius: 99,
+    overflow: "hidden",
+  },
+  progressBarFill: {
+    height: "100%",
+    borderRadius: 99,
+  },
+});

@@ -11,9 +11,8 @@ import {
   StyleSheet,
   Text,
   TouchableOpacity,
-  View,
+  View
 } from "react-native";
-import Toast from "react-native-toast-message";
 
 export default function MealPlanCard({ mealPlanInfo, showCheckbox }) {
   const UpdateStatus = useMutation(api.MealPlan.updateStatus);
@@ -30,16 +29,7 @@ export default function MealPlanCard({ mealPlanInfo, showCheckbox }) {
     if (Platform.OS === "ios") {
       Alert.alert("Great!", "Status Updated");
     } else {
-      Toast.show({
-        type: "custom",
-        text1: "Great!",
-        text2: "Status Updated",
-        position: "bottom",
-        visibilityTime: 2500,
-        props: {
-          icon: "🤩",
-        },
-      });
+      ToastAndroid.show("Status Updated 🤩", ToastAndroid.SHORT);
     }
 
     setRefreshData(Date.now());

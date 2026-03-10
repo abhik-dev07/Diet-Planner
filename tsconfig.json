@@ -3,7 +3,9 @@
   "compilerOptions": {
     "strict": true,
     "paths": {
-      "@/*": ["./*"]
+      "@/*": [
+        "./*"
+      ]
     }
   },
   "include": [
@@ -11,19 +13,6 @@
     "**/*.tsx",
     ".expo/types/**/*.ts",
     "expo-env.d.ts",
-    "components/shared/Input.jsx",
-    "components/shared/Button.jsx",
-    "services/FirebaseConfig.jsx",
-    "services/AiModel.jsx",
-    "components/home/HomeHeader.jsx",
-    "app/recipe-detail/[index].jsx",
-    "app/auth/SignUp.jsx",
-    "app/(tabs)/_layout.jsx",
-    "app/(tabs)/Home.jsx",
-    "app/(tabs)/Meals.jsx",
-    "app/(tabs)/Profile.jsx",
-    "app/(tabs)/Progress.jsx",
-    "app/generate-ai-recipe/index.jsx",
-    "app/index.jsx"
+    "app/_layout.jsx"
   ]
 }

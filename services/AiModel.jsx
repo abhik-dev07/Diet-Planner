@@ -1,40 +1,28 @@
 import axios from "axios";
 
-const GEMINI_API_URL =
-  "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent";
-const API_KEY = process.env.EXPO_PUBLIC_GEMINI_API_KEY;
+const SERVER_URL = "http://10.0.2.2:8080/api";
 
-export const CalculateCaloriesAi = async (PROMPT) =>
-  await axios.post(
-    `${GEMINI_API_URL}?key=${API_KEY}`,
-    {
-      contents: [
-        {
-          parts: [{ text: PROMPT }],
-        },
-      ],
-    },
-    {
-      headers: { "Content-Type": "application/json" },
-    }
-  );
+const callAiBackend = async (route, prompt) => {
+  try {
+    const response = await axios.post(`${SERVER_URL}${route}`, { prompt });
+    return response.data;
+  } catch (error) {
+    console.error(`Error calling ${route}:`, error);
+    throw error;
+  }
+};
 
-export const GenerateRecipe = async (PROMPT) =>
-  await axios.post(
-    `${GEMINI_API_URL}?key=${API_KEY}`,
-    {
-      contents: [
-        {
-          parts: [{ text: PROMPT }],
-        },
-      ],
-    },
-    {
-      headers: { "Content-Type": "application/json" },
-    }
-  );
+export const GenerateRecipe = async (prompt) => {
+  const data = await callAiBackend("/recipe", prompt);
+  return data.result;
+};
 
-const BASE_URL = "https://diet-planner-image-server-p8rw.onrender.com/api";
-export const RecipeImageApi = axios.create({
-  baseURL: BASE_URL,
-});
+export const GenerateRecipeImage = async (prompt) => {
+  try {
+    const data = await callAiBackend("/image", prompt);
+    return data.image;
+  } catch (error) {
+    console.error("Error generating image via backend:", error);
+    return null;
+  }
+};

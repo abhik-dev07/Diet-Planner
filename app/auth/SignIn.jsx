@@ -1,301 +1,178 @@
 import Button from "@/components/shared/Button";
-import Input from "@/components/shared/Input";
 import { UserContext } from "@/context/UserContext";
 import { api } from "@/convex/_generated/api";
-import { auth } from "@/services/FirebaseConfig";
-import { useMutation, useConvex } from "convex/react";
+import Colors from "@/shared/Colors";
+import { GoogleSignin } from "@react-native-google-signin/google-signin";
+import { useConvex, useMutation } from "convex/react";
 import { useRouter } from "expo-router";
-import {
-  signInWithEmailAndPassword,
-  sendEmailVerification,
-  sendPasswordResetEmail,
-} from "firebase/auth";
-import React, { useContext, useEffect, useState } from "react";
+import { useContext, useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  Dimensions,
   Image,
-  Keyboard,
-  KeyboardAvoidingView,
-  LayoutAnimation,
   Platform,
-  ScrollView,
+  StyleSheet,
   Text,
-  TouchableOpacity,
-  TouchableWithoutFeedback,
-  UIManager,
-  View,
+  ToastAndroid,
+  View
 } from "react-native";
-import Toast from "react-native-toast-message";
-import Ionicons from "@expo/vector-icons/Ionicons";
 
-if (
-  Platform.OS === "android" &&
-  UIManager.setLayoutAnimationEnabledExperimental
-) {
-  UIManager.setLayoutAnimationEnabledExperimental(true);
-}
+const { width } = Dimensions.get("window");
 
 export default function SignIn() {
   const router = useRouter();
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
-  const [resendCooldown, setResendCooldown] = useState(0);
-  const [unverifiedUser, setUnverifiedUser] = useState(null);
-  const [failedAttempt, setFailedAttempt] = useState(0);
-  const [showPassword, setShowPassword] = useState(false);
-
   const convex = useConvex();
   const createNewUser = useMutation(api.Users.CreateNewUser);
   const { setUser } = useContext(UserContext);
 
-  const showToastOrAlert = (title, message, icon) => {
+  useEffect(() => {
+    GoogleSignin.configure({
+      webClientId: process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID,
+    });
+  }, []);
+
+  const showToastOrAlert = (title, message) => {
     if (Platform.OS === "ios") {
       Alert.alert(title, message);
     } else {
-      Toast.show({
-        type: "custom",
-        text1: title,
-        text2: message,
-        position: "bottom",
-        visibilityTime: 2500,
-        props: { icon: icon || "❗" },
-      });
+      ToastAndroid.show(`${title}: ${message}`, ToastAndroid.SHORT);
     }
   };
 
-  const onSignIn = async () => {
-    if (!email || !password) {
-      showToastOrAlert("Missing Fields!", "Enter all field values", "🙄");
-      return;
-    }
-
+  const onGoogleSignIn = async () => {
     setLoading(true);
     try {
-      const userCredential = await signInWithEmailAndPassword(
-        auth,
-        email,
-        password
-      );
-      const firebaseUser = userCredential.user;
+      await GoogleSignin.hasPlayServices();
+      const userInfo = await GoogleSignin.signIn();
 
-      if (!firebaseUser.emailVerified) {
-        setUnverifiedUser(firebaseUser);
-        showToastOrAlert(
-          "Email Not Verified ❌",
-          "Please verify your email first.",
-          "📭"
-        );
-        setLoading(false);
-        return;
+      // The structure of userInfo from @react-native-google-signin/google-signin v11+ 
+      // is { data: { user: { email, name, photo, ... } } }
+      const user = userInfo.data ? userInfo.data.user : userInfo.user;
+
+      if (!user) {
+        throw new Error("User data not found from Google.");
       }
 
-      const userData = await convex.query(api.Users.GetUser, { email });
+      console.log("Google User Data:", user);
 
-      let finalUserData = userData;
-      if (!userData) {
-        finalUserData = await createNewUser({
-          name: firebaseUser.displayName ?? "New User",
-          email: firebaseUser.email ?? email,
-        });
-      }
+      // Sync with Convex
+      const userData = await createNewUser({
+        name: user.name,
+        email: user.email,
+        picture: user.photo,
+      });
 
-      setUser(finalUserData);
-      showToastOrAlert("Login Successful ✅", "Start your Diet Track", "🫡");
+      setUser(userData);
+      showToastOrAlert("Welcome", `Signed in as ${user.name}`);
       router.replace("/(tabs)/Home");
     } catch (error) {
-      console.log("SignIn Error:", error.message);
-      setFailedAttempt((prev) => prev + 1);
-
-      if (error.code === "auth/user-not-found") {
-        showToastOrAlert("User Not Found", "No account with this email", "❌");
-      } else {
-        showToastOrAlert(
-          "Incorrect Email & Password!",
-          "Please enter valid credentials",
-          "🤨"
-        );
-      }
+      console.log("Google Sign-In Error:", error);
+      showToastOrAlert("Sign-In Failed", "Could not complete Google Sign-In");
     } finally {
       setLoading(false);
     }
   };
 
-  const resendVerificationEmail = async () => {
-    if (!unverifiedUser) return;
-
-    try {
-      await sendEmailVerification(unverifiedUser);
-      showToastOrAlert(
-        "Verification Email Sent ✅",
-        "Check your inbox or spam folder",
-        "📧"
-      );
-      setResendCooldown(60);
-    } catch (error) {
-      console.log("Resend error:", error.message);
-      showToastOrAlert("Failed to Resend!", "Try again later", "❌");
-    }
-  };
-
-  const forgotPassword = async () => {
-    if (!email) {
-      showToastOrAlert(
-        "Email Required",
-        "Please enter your email to reset password",
-        "📧"
-      );
-      return;
-    }
-    try {
-      await sendPasswordResetEmail(auth, email);
-      showToastOrAlert(
-        "Reset Link Sent ✅",
-        "Check your email to reset your password",
-        "📤"
-      );
-    } catch (error) {
-      console.log("Forgot Password Error:", error.message);
-      showToastOrAlert("Reset Failed", error.message, "❌");
-    }
-  };
-
-  useEffect(() => {
-    let timer;
-    if (resendCooldown > 0) {
-      timer = setTimeout(() => setResendCooldown((prev) => prev - 1), 1000);
-    }
-    return () => clearTimeout(timer);
-  }, [resendCooldown]);
-
-  useEffect(() => {
-    const showListener = Keyboard.addListener("keyboardWillShow", () => {
-      LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-    });
-    const hideListener = Keyboard.addListener("keyboardWillHide", () => {
-      LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-    });
-
-    return () => {
-      showListener.remove();
-      hideListener.remove();
-    };
-  }, []);
-
   return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === "ios" ? "padding" : "height"}
-      style={{ flex: 1 }}
-    >
-      <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-        <ScrollView
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={{ flexGrow: 1 }}
-          keyboardShouldPersistTaps="handled"
-        >
-          <View style={{ flex: 1, alignItems: "center", padding: 25 }}>
-            <Image
-              source={require("./../../assets/images/logo.png")}
-              style={{ width: 150, height: 150, marginTop: 60 }}
-            />
-            <Text style={{ fontSize: 35, fontWeight: "bold" }}>
-              Welcome Back
-            </Text>
+    <View style={styles.container}>
+      <View style={styles.topSection}>
+        <Image
+          source={require("./../../assets/images/logo.png")}
+          style={styles.logo}
+        />
+        <Text style={styles.title}>AI Diet Planner</Text>
+        <Text style={styles.subtitle}>
+          Your personalized nutrition journey starts here.
+        </Text>
+      </View>
 
-            <View style={{ width: "100%", marginTop: 20 }}>
-              <Input placeholder="Email" onChangeText={setEmail} />
-              <Input
-                placeholder="Password"
-                password={!showPassword}
-                onChangeText={setPassword}
-                rightIcon={
-                  <TouchableOpacity
-                    onPress={() => setShowPassword(!showPassword)}
-                  >
-                    <Ionicons
-                      name={showPassword ? "eye-off-outline" : "eye-outline"}
-                      size={24}
-                      color="#999"
-                    />
-                  </TouchableOpacity>
-                }
-              />
-            </View>
+      <View style={styles.bottomSection}>
+        <Text style={styles.welcomeText}>Welcome back!</Text>
+        <Text style={styles.instructionText}>
+          Sign in to access your meal plans and track your progress.
+        </Text>
 
-            {failedAttempt >= 1 && (
-              <View style={{ width: "100%", marginTop: 10 }}>
-                <TouchableOpacity onPress={forgotPassword}>
-                  <Text
-                    style={{
-                      color: "#007AFF",
-                      textAlign: "right",
-                      fontWeight: "500",
-                    }}
-                  >
-                    Forgot Password?
-                  </Text>
-                </TouchableOpacity>
-              </View>
-            )}
+        <View style={{ width: "100%", marginTop: 35 }}>
+          <Button
+            title={loading ? "Connecting..." : "Continue with Google"}
+            onPress={onGoogleSignIn}
+            disabled={loading}
+            icon="logo-google"
+          />
+        </View>
 
-            <View style={{ width: "100%", marginTop: 15 }}>
-              <Button
-                title={loading ? "Signing In..." : "Sign In"}
-                onPress={onSignIn}
-                disabled={loading}
-              />
-              {loading && (
-                <ActivityIndicator
-                  size="large"
-                  color="#007AFF"
-                  style={{ marginTop: 10 }}
-                />
-              )}
+        {loading && (
+          <ActivityIndicator
+            size="large"
+            color={Colors.PRIMARY}
+            style={{ marginTop: 20 }}
+          />
+        )}
 
-              {unverifiedUser && (
-                <View style={{ marginTop: 20 }}>
-                  <TouchableOpacity
-                    onPress={resendVerificationEmail}
-                    disabled={resendCooldown > 0}
-                  >
-                    <Text
-                      style={{
-                        textAlign: "center",
-                        fontSize: 16,
-                        color: resendCooldown > 0 ? "gray" : "#007AFF",
-                        fontWeight: "bold",
-                      }}
-                    >
-                      {resendCooldown > 0
-                        ? `Resend in ${resendCooldown}s`
-                        : "Resend Verification Email"}
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-              )}
-
-              <Text
-                style={{ textAlign: "center", fontSize: 16, marginTop: 15 }}
-              >
-                Don't have an account?
-              </Text>
-              <TouchableOpacity onPress={() => router.push("/auth/SignUp")}>
-                <Text
-                  style={{
-                    textAlign: "center",
-                    fontSize: 16,
-                    marginTop: 5,
-                    fontWeight: "bold",
-                  }}
-                >
-                  Create New Account
-                </Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </ScrollView>
-      </TouchableWithoutFeedback>
-    </KeyboardAvoidingView>
+        <Text style={styles.footerText}>
+          By continuing, you agree to our Terms of Service and Privacy Policy.
+        </Text>
+      </View>
+    </View>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: Colors.WHITE,
+  },
+  topSection: {
+    flex: 0.5,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: Colors.PRIMARY,
+    borderBottomLeftRadius: 50,
+    borderBottomRightRadius: 50,
+  },
+  logo: {
+    width: 120,
+    height: 120,
+    marginBottom: 20,
+  },
+  title: {
+    fontSize: 28,
+    fontWeight: "bold",
+    color: Colors.WHITE,
+  },
+  subtitle: {
+    fontSize: 14,
+    color: Colors.WHITE,
+    opacity: 0.8,
+    marginTop: 5,
+    textAlign: "center",
+    paddingHorizontal: 40,
+  },
+  bottomSection: {
+    flex: 0.5,
+    padding: 30,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  welcomeText: {
+    fontSize: 24,
+    fontWeight: "800",
+    color: "#333",
+  },
+  instructionText: {
+    fontSize: 15,
+    color: "#777",
+    textAlign: "center",
+    marginTop: 10,
+    lineHeight: 22,
+  },
+  footerText: {
+    fontSize: 12,
+    color: "#bbb",
+    textAlign: "center",
+    marginTop: "auto",
+    paddingBottom: 20,
+  },
+});

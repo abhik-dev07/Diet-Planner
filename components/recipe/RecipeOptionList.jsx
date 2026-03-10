@@ -1,9 +1,9 @@
 import { UserContext } from "@/context/UserContext";
 import { api } from "@/convex/_generated/api";
-import { GenerateRecipe, RecipeImageApi } from "@/services/AiModel";
+import { GenerateRecipe, GenerateRecipeImage } from "@/services/AiModel";
 import Colors from "@/shared/Colors";
 import Prompt from "@/shared/Prompt";
-import { useMutation } from "convex/react";
+import { useConvex, useMutation } from "convex/react";
 import { useRouter } from "expo-router";
 import { useContext, useState } from "react";
 import { Text, TouchableOpacity, View } from "react-native";
@@ -12,6 +12,8 @@ import LoadingDialog from "../shared/LoadingDialog";
 export default function RecipeOptionList({ RecipeOption }) {
   const [loading, setLoading] = useState();
   const CreateRecipe = useMutation(api.Recipes.CreateRecipe);
+  const generateUploadUrl = useMutation(api.Recipes.generateUploadUrl);
+  const convex = useConvex();
   const { user } = useContext(UserContext);
   const router = useRouter();
 
@@ -27,32 +29,52 @@ export default function RecipeOptionList({ RecipeOption }) {
         recipe?.description +
         Prompt.GENERATE_COMPLETE_RECIPE_PROMPT;
 
-      const result = await GenerateRecipe(PROMPT);
-      const extractJson =
-        result.data.candidates?.[0]?.content?.parts?.[0]?.text || "{}";
-      const jsonMatch = extractJson.match(/```json\n([\s\S]*?)\n```/);
-      if (!jsonMatch) {
-        throw new Error("Ai response dose not contain JSON");
+      const parsedJsonResp = await GenerateRecipe(PROMPT);
+      console.log("Structured Complete Recipe:", parsedJsonResp);
+
+      // 1. Generate Recipe Image with Google Imagen 3 (Base64)
+
+      // 1. Generate Recipe Image with Google Imagen 3 (Base64)
+      const base64Image = await GenerateRecipeImage(parsedJsonResp?.imagePrompt);
+      let finalImageUrl = "";
+
+      if (base64Image) {
+        try {
+          // 2. Get upload URL from Convex
+          const uploadUrl = await generateUploadUrl();
+
+          // 3. Convert base64 to Blob
+          const response = await fetch(base64Image);
+          const blob = await response.blob();
+
+          // 4. Post to Convex Storage
+          const uploadResult = await fetch(uploadUrl, {
+            method: "POST",
+            headers: { "Content-Type": "image/png" },
+            body: blob,
+          });
+
+          const { storageId } = await uploadResult.json();
+          console.log("Uploaded Storage ID:", storageId);
+
+          // 5. Get Public Image URL
+          finalImageUrl = await convex.query(api.Recipes.getImageUrl, {
+            storageId,
+          });
+          console.log("Final Convex Image URL:", finalImageUrl);
+        } catch (uploadError) {
+          console.error("Storage Upload Error:", uploadError);
+          finalImageUrl = base64Image; // Fallback to base64 if upload fails
+        }
       }
-      const jsonString = jsonMatch[1];
-      const parsedJsonResp = JSON.parse(jsonString ?? "{}");
 
-      console.log(parsedJsonResp);
-
-      // Generate Recipe Image
-      const aiImageresp = await RecipeImageApi.post("/image/generate", {
-        prompt: parsedJsonResp?.imagePrompt,
-      });
-      console.log(aiImageresp.data.imageUrl);
-
-      // Save to Db
+      // 6. Save to Db with Convex Storage URL
       const saveRecipeResult = await CreateRecipe({
         jsonData: parsedJsonResp,
-        imageUrl: aiImageresp.data.imageUrl,
+        imageUrl: finalImageUrl || "",
         recipeName: parsedJsonResp?.recipeName,
         uid: user?._id,
       });
-      console.log(saveRecipeResult);
 
       router.push({
         pathname: "/recipe-detail",
@@ -67,33 +89,43 @@ export default function RecipeOptionList({ RecipeOption }) {
 
   return (
     <View style={{ marginTop: 20 }}>
-      <Text style={{ fontSize: 20, fontWeight: "bold" }}>Select Recipe</Text>
+      <Text style={{ fontSize: 22, fontWeight: "bold", textAlign: 'center', marginBottom: 10 }}>Select Recipe</Text>
 
-      <View>
-        {RecipeOption?.map((item, index) => (
+      <BottomSheetFlatList
+        data={RecipeOption}
+        keyExtractor={(item, index) => index.toString()}
+        renderItem={({ item, index }) => (
           <TouchableOpacity
             onPress={() => onRecipeOptionSelect(item)}
-            key={index}
             style={{
-              padding: 15,
-              borderWidth: 1,
-              borderRadius: 15,
+              padding: 18,
+              borderWidth: 1.5,
+              borderRadius: 20,
               marginTop: 15,
+              backgroundColor: Colors.WHITE,
+              borderColor: Colors.SECONDARY,
+              elevation: 2,
+              shadowColor: '#000',
+              shadowOffset: { width: 0, height: 2 },
+              shadowOpacity: 0.1,
+              shadowRadius: 4,
             }}
           >
             <Text
               style={{
                 fontWeight: "bold",
-                fontSize: 16,
+                fontSize: 18,
+                color: Colors.PRIMARY
               }}
             >
               {item?.recipeName}
             </Text>
-            <Text style={{ color: Colors.GRAY }}>{item?.description}</Text>
+            <Text style={{ color: Colors.GRAY, marginTop: 5, fontSize: 14 }}>{item?.description}</Text>
           </TouchableOpacity>
-        ))}
-      </View>
-      <LoadingDialog loading={loading} title="Loading" />
+        )}
+        contentContainerStyle={{ paddingBottom: 40 }}
+      />
+      <LoadingDialog loading={loading} title="Analyzing Recipe..." />
     </View>
   );
 }

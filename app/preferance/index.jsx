@@ -27,8 +27,6 @@ import {
   View,
 } from "react-native";
 import LoadingDialog from "../../components/shared/LoadingDialog";
-import { CalculateCaloriesAi } from "../../services/AiModel";
-import Prompt from "../../shared/Prompt";
 
 if (
   Platform.OS === "android" &&
@@ -40,8 +38,10 @@ if (
 export default function Preferance() {
   const [weight, setWeight] = useState();
   const [height, setHeight] = useState();
+  const [age, setAge] = useState();
   const [gender, setGender] = useState();
   const [goal, setGoal] = useState();
+  const [activityLevel, setActivityLevel] = useState();
   const [loading, setLoading] = useState(false);
 
   const { user, setUser } = useContext(UserContext);
@@ -49,8 +49,90 @@ export default function Preferance() {
   const router = useRouter();
   const convex = useConvex();
 
+  function normalizeHeight(input) {
+    const numInput = Number(input);
+    if (!isNaN(numInput) && numInput > 100) {
+      return numInput;
+    }
+
+    if (!isNaN(numInput) && numInput < 10) {
+      const feet = Math.floor(numInput);
+      const inches = Math.round((numInput - feet) * 10);
+      return feet * 30.48 + inches * 2.54;
+    }
+
+    if (typeof input === "string" && input.includes(".")) {
+      const parts = input.split(".");
+      const feet = parseInt(parts[0]);
+      const inches = parseInt(parts[1]);
+      return feet * 30.48 + (isNaN(inches) ? 0 : inches * 2.54);
+    }
+
+    return 170;
+  }
+
+  function calculateFitnessMetrics(
+    age,
+    weightKg,
+    heightRaw,
+    gender,
+    goal,
+    activityLevel
+  ) {
+    const heightCm = normalizeHeight(heightRaw);
+
+    const multipliers = {
+      sedentary: 1.2,
+      "lightly active": 1.375,
+      "moderately active": 1.55,
+      "very active": 1.725,
+      "extra active": 1.9,
+    };
+    const activeVal = multipliers[activityLevel.toLowerCase()] || 1.2;
+
+    const bmr =
+      gender.toLowerCase() === "male"
+        ? 10 * weightKg + 6.25 * heightCm - 5 * age + 5
+        : 10 * weightKg + 6.25 * heightCm - 5 * age - 161;
+
+    const tdee = bmr * activeVal;
+
+    const goals = {
+      "muscle gain": { cal: 300, prot: 2.2 },
+      "muscle build": { cal: 300, prot: 2.2 },
+      "weight gain": { cal: 500, prot: 1.8 },
+      "weight loss": { cal: -500, prot: 2.0 },
+    };
+    const selection = goals[goal.toLowerCase()] || { cal: 0, prot: 0.8 };
+
+    const dailyCalories = Math.round(tdee + selection.cal);
+
+    const proteinGrams = Math.round(weightKg * selection.prot);
+    const proteinKcal = proteinGrams * 4;
+
+    const fatKcal = dailyCalories * 0.25;
+    const fatGrams = Math.round(fatKcal / 9);
+
+    const carbKcal = dailyCalories - (proteinKcal + fatKcal);
+    const carbGrams = Math.round(carbKcal / 4);
+
+    const fiberGrams = Math.round((dailyCalories / 1000) * 14);
+
+    return {
+      targetCalories: dailyCalories,
+      protein: proteinGrams,
+      carbs: carbGrams,
+      fats: fatGrams,
+      fiber: fiberGrams,
+      bmr: Math.round(bmr),
+      maintenance: Math.round(tdee),
+      summary: `Target: ${dailyCalories}kcal | P: ${proteinGrams}g | C: ${carbGrams}g | F: ${fatGrams}g | Fiber: ${fiberGrams}g`,
+      heightCm: heightCm.toFixed(1),
+    };
+  }
+
   const OnContinue = async () => {
-    if (!weight || !height || !gender) {
+    if (!weight || !height || !gender || !age || !goal || !activityLevel) {
       Alert.alert("Fill all the fields", "Enter all details to continue");
       return;
     }
@@ -59,49 +141,49 @@ export default function Preferance() {
 
     setLoading(true);
 
-    const data = {
-      email: user?.email,
-      weight,
-      height,
-      gender,
-      goal,
-    };
-
     try {
-      const PROMPT = JSON.stringify(data) + Prompt.CALOERIES_PROMPT;
-      const AIResult = await CalculateCaloriesAi(PROMPT);
+      const metrics = calculateFitnessMetrics(
+        Number(age),
+        Number(weight),
+        height,
+        gender,
+        goal,
+        activityLevel
+      );
 
-      const aiResponse =
-        AIResult.data.candidates?.[0]?.content?.parts?.[0]?.text || "{}";
+      const data = {
+        email: user?.email,
+        weight: weight.toString(),
+        height: metrics.heightCm,
+        gender,
+        goal,
+        activityLevel,
+        calories: Number(metrics.targetCalories),
+        proteins: Number(metrics.protein),
+        carbs: Number(metrics.carbs),
+        fats: Number(metrics.fats),
+        fiber: Number(metrics.fiber),
+        bmr: Number(metrics.bmr),
+        maintenance: Number(metrics.maintenance),
+      };
 
-      const jsonMatch = aiResponse.match(/```json\n([\s\S]*?)\n```/);
-      if (!jsonMatch) {
-        throw new Error("AI response does not contain JSON");
-      }
+      console.log("Calculated Data to Save:", data);
+      console.log("Fitness Summary:", metrics.summary);
 
-      const jsonString = jsonMatch[1];
-      const JSONContent = JSON.parse(jsonString);
+      await UpdateUserPref(data);
 
-      console.log("AI JSON Content:", JSONContent);
-
-      // Save to DB with full data
-      await UpdateUserPref({
-        ...data,
-        ...JSONContent,
-      });
-
-      // ✅ Refetch full, latest user
       const latestUser = await convex.query(api.Users.GetUserByEmail, {
         email: user?.email,
       });
 
       setUser(latestUser);
-
-      // Navigate
       router.replace("/(tabs)/Home");
     } catch (error) {
       console.error("Update failed:", error);
-      Alert.alert("Error", "Something went wrong. Please try again.");
+      Alert.alert(
+        "Update Failed",
+        `Error: ${error.message}\n\nPlease check your input and try again.`
+      );
     } finally {
       setLoading(false);
     }
@@ -195,18 +277,28 @@ export default function Preferance() {
               marginTop: 15,
             }}
           >
-            <View style={{ display: "flex", width: "49%" }}>
+            <View style={{ display: "flex", width: "32%" }}>
               <Input
                 placeholder={"e.g 70"}
                 lable="Weight (kg)"
                 onChangeText={setWeight}
+                keyboardType="numeric"
               />
             </View>
-            <View style={{ display: "flex", width: "49%" }}>
+            <View style={{ display: "flex", width: "32%" }}>
               <Input
-                placeholder={"e.g 5.10"}
-                lable="Height (ft)"
+                placeholder={"e.g 172 or 5.8"}
+                lable="Height (cm or ft.in)"
                 onChangeText={setHeight}
+                keyboardType="numeric"
+              />
+            </View>
+            <View style={{ display: "flex", width: "32%" }}>
+              <Input
+                placeholder={"e.g 23"}
+                lable="Age"
+                onChangeText={setAge}
+                keyboardType="numeric"
               />
             </View>
           </View>
@@ -371,6 +463,73 @@ export default function Preferance() {
                 </Text>
               </View>
             </TouchableOpacity>
+          </View>
+
+          <View style={{ marginTop: 20 }}>
+            <Text style={{ fontWeight: "medium", fontSize: 18 }}>
+              Activity Level
+            </Text>
+            {[
+              {
+                id: "Sedentary",
+                title: "Sedentary",
+                sub: "Office job, little/no exercise",
+                icon: "briefcase-outline",
+              },
+              {
+                id: "Lightly Active",
+                title: "Lightly Active",
+                sub: "Light exercise 1-3 days/week",
+                icon: "walk-outline",
+              },
+              {
+                id: "Moderately Active",
+                title: "Moderately Active",
+                sub: "Moderate exercise 3-5 days/week",
+                icon: "fitness-outline",
+              },
+              {
+                id: "Very Active",
+                title: "Very Active",
+                sub: "Hard exercise 6-7 days/week",
+                icon: "flame-outline",
+              },
+              {
+                id: "Extra Active",
+                title: "Extra Active",
+                sub: "Physical job + 2x daily training",
+                icon: "flash-outline",
+              },
+            ].map((item) => (
+              <TouchableOpacity
+                key={item.id}
+                onPress={() => setActivityLevel(item.id)}
+                style={[
+                  styles.goalContainer,
+                  {
+                    borderColor:
+                      activityLevel == item.id ? Colors.PRIMARY : Colors.GRAY,
+                  },
+                ]}
+              >
+                <View
+                  style={{
+                    backgroundColor: "#e0f2ff",
+                    borderRadius: 99,
+                    height: 35,
+                    width: 35,
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  <Ionicons name={item.icon} size={20} color={Colors.BLUE} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.goalText}>{item.title}</Text>
+                  <Text style={styles.goalSubText}>{item.sub}</Text>
+                </View>
+              </TouchableOpacity>
+            ))}
           </View>
           <View style={{ marginTop: 50 }}>
             <Button

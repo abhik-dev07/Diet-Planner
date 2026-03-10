@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "Diet Planner",
+    "name": "Diet-Planner",
     "slug": "Diet-Planner",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -10,18 +10,18 @@
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.stoic07.DietPlanner"
+      "bundleIdentifier": "com.stoic.dietplanner"
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/images/adaptive-icon.png",
-        "backgroundColor": "#ffffff"
+        "backgroundColor": "#E6F4FE",
+        "foregroundImage": "./assets/images/adaptive-icon.png"
       },
       "edgeToEdgeEnabled": true,
-      "package": "com.stoic07.DietPlanner"
+      "package": "com.stoic.dietplanner",
+      "predictiveBackGestureEnabled": false
     },
     "web": {
-      "bundler": "metro",
       "output": "static",
       "favicon": "./assets/images/favicon.png"
     },
@@ -33,13 +33,23 @@
           "image": "./assets/images/splash-icon.png",
           "imageWidth": 200,
           "resizeMode": "contain",
-          "backgroundColor": "#ffffff"
+          "backgroundColor": "#ffffff",
+          "dark": {
+            "backgroundColor": "#000000"
+          }
         }
       ],
-      "expo-web-browser"
+      "./plugins/with-local-credentials"
     ],
     "experiments": {
-      "typedRoutes": true
+      "typedRoutes": true,
+      "reactCompiler": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "352216c4-6cb0-4b2b-9230-a2836853e287"
+      }
     }
   }
 }
