@@ -8,6 +8,7 @@ export default function Input({
   onChangeText,
   lable = "",
   rightIcon = null,
+  keyboardType = "default",
 }) {
   return (
     <View style={styles.wrapper}>
@@ -16,9 +17,10 @@ export default function Input({
         <TextInput
           secureTextEntry={password}
           placeholder={placeholder}
-          placeholderTextColor={"#ccc"}
+          placeholderTextColor="#C7C7CC"
           onChangeText={(value) => onChangeText(value)}
           style={styles.input}
+          keyboardType={keyboardType}
         />
         {rightIcon && <View style={styles.icon}>{rightIcon}</View>}
       </View>
@@ -28,27 +30,31 @@ export default function Input({
 
 const styles = StyleSheet.create({
   wrapper: {
-    marginTop: 15,
+    marginTop: 12,
     width: "100%",
   },
   label: {
-    fontWeight: "500",
-    fontSize: 18,
-    marginBottom: 5,
+    fontWeight: "600",
+    fontSize: 14,
+    marginBottom: 6,
+    color: Colors.DARK,
+    letterSpacing: -0.1,
   },
   inputContainer: {
     position: "relative",
     justifyContent: "center",
   },
   input: {
-    padding: 15,
-    borderWidth: 1,
-    borderRadius: 10,
-    fontSize: 18,
+    padding: 14,
+    borderWidth: 1.5,
+    borderColor: Colors.BORDER,
+    borderRadius: 16,
+    fontSize: 16,
     paddingRight: 45,
-    paddingVertical: 20,
     width: "100%",
-    color: Colors.PRIMARY,
+    color: Colors.DARK,
+    backgroundColor: Colors.WHITE,
+    fontWeight: '500',
   },
   icon: {
     position: "absolute",

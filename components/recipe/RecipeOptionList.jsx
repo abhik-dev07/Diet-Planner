@@ -3,11 +3,14 @@ import { api } from "@/convex/_generated/api";
 import { GenerateRecipe, GenerateRecipeImage } from "@/services/AiModel";
 import Colors from "@/shared/Colors";
 import Prompt from "@/shared/Prompt";
+import MaterialIcons from "@expo/vector-icons/MaterialIcons";
+import { BottomSheetFlatList } from "@gorhom/bottom-sheet";
 import { useConvex, useMutation } from "convex/react";
 import { useRouter } from "expo-router";
 import { useContext, useState } from "react";
-import { Text, TouchableOpacity, View } from "react-native";
+import { StyleSheet, Text, TouchableOpacity, View, Alert } from "react-native";
 import LoadingDialog from "../shared/LoadingDialog";
+import * as FileSystem from 'expo-file-system';
 
 export default function RecipeOptionList({ RecipeOption }) {
   const [loading, setLoading] = useState();
@@ -29,25 +32,72 @@ export default function RecipeOptionList({ RecipeOption }) {
         recipe?.description +
         Prompt.GENERATE_COMPLETE_RECIPE_PROMPT;
 
-      const parsedJsonResp = await GenerateRecipe(PROMPT);
+      const resultJson = await GenerateRecipe(PROMPT);
+      let parsedJsonResp = null;
+      console.log("Full Recipe AI Raw Response (Type:", typeof resultJson, "):", resultJson);
+
+      try {
+        if (resultJson === undefined || resultJson === null) {
+           throw new Error("AI returned nothing (null/undefined)");
+        }
+
+        if (typeof resultJson === "string") {
+          let cleanStr = resultJson.replace(/```json/gi, '').replace(/```/gi, '').trim();
+          if (!cleanStr) throw new Error("AI response string resulted in empty content after cleaning");
+          parsedJsonResp = JSON.parse(cleanStr);
+        } else if (resultJson?.data?.candidates) {
+          const extractJson = resultJson.data.candidates?.[0]?.content?.parts?.[0]?.text || "";
+          if (!extractJson) throw new Error("AI response contains empty text in candidates");
+          
+          const jsonMatch = extractJson.match(/```json\n([\s\S]*?)\n```/) || extractJson.match(/{[\s\S]*}/);
+          const jsonString = (jsonMatch ? jsonMatch[1] || jsonMatch[0] : extractJson).trim();
+          
+          if (!jsonString) throw new Error("JSON extraction failed (no braces or markdown blocks found)");
+          parsedJsonResp = JSON.parse(jsonString);
+        } else {
+          parsedJsonResp = resultJson;
+        }
+
+        if (parsedJsonResp && !parsedJsonResp.recipeName) {
+           if (parsedJsonResp.recipe) {
+             parsedJsonResp = parsedJsonResp.recipe;
+             if (Array.isArray(parsedJsonResp)) parsedJsonResp = parsedJsonResp[0];
+           } else if (parsedJsonResp.recipes && Array.isArray(parsedJsonResp.recipes)) {
+             parsedJsonResp = parsedJsonResp.recipes[0];
+           }
+        }
+
+        if (!parsedJsonResp || typeof parsedJsonResp !== 'object') {
+           throw new Error("Final parsed response is not a valid object: " + JSON.stringify(parsedJsonResp));
+        }
+      } catch (parseError) {
+        console.error("Critical JSON Parsing Error:", parseError);
+        Alert.alert(
+          "Generation Failed", 
+          "The AI was unable to generate a structured recipe at this time. This usually happens if the response is interrupted. Please try again."
+        );
+        return;
+      }
       console.log("Structured Complete Recipe:", parsedJsonResp);
 
-      // 1. Generate Recipe Image with Google Imagen 3 (Base64)
-
-      // 1. Generate Recipe Image with Google Imagen 3 (Base64)
       const base64Image = await GenerateRecipeImage(parsedJsonResp?.imagePrompt);
       let finalImageUrl = "";
 
       if (base64Image) {
         try {
-          // 2. Get upload URL from Convex
           const uploadUrl = await generateUploadUrl();
+          
+          // React Native fetch() often fails on literal data URIs, so write to a temp file first
+          const base64Data = base64Image.includes('base64,') ? base64Image.split('base64,')[1] : base64Image;
+          const tempUri = FileSystem.cacheDirectory + 'tempImage.png';
+          
+          await FileSystem.writeAsStringAsync(tempUri, base64Data, { 
+            encoding: 'base64' 
+          });
 
-          // 3. Convert base64 to Blob
-          const response = await fetch(base64Image);
+          const response = await fetch(tempUri);
           const blob = await response.blob();
 
-          // 4. Post to Convex Storage
           const uploadResult = await fetch(uploadUrl, {
             method: "POST",
             headers: { "Content-Type": "image/png" },
@@ -57,18 +107,17 @@ export default function RecipeOptionList({ RecipeOption }) {
           const { storageId } = await uploadResult.json();
           console.log("Uploaded Storage ID:", storageId);
 
-          // 5. Get Public Image URL
           finalImageUrl = await convex.query(api.Recipes.getImageUrl, {
             storageId,
           });
           console.log("Final Convex Image URL:", finalImageUrl);
         } catch (uploadError) {
           console.error("Storage Upload Error:", uploadError);
-          finalImageUrl = base64Image; // Fallback to base64 if upload fails
+          // Don't fallback to base64 string because it's too large for Convex DB (1MiB limit)
+          finalImageUrl = ""; 
         }
       }
 
-      // 6. Save to Db with Convex Storage URL
       const saveRecipeResult = await CreateRecipe({
         jsonData: parsedJsonResp,
         imageUrl: finalImageUrl || "",
@@ -82,14 +131,16 @@ export default function RecipeOptionList({ RecipeOption }) {
       });
     } catch (e) {
       console.error("Error generating recipe:", e);
+      Alert.alert("Process Failed", "There was an error saving your generated recipe.");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <View style={{ marginTop: 20 }}>
-      <Text style={{ fontSize: 22, fontWeight: "bold", textAlign: 'center', marginBottom: 10 }}>Select Recipe</Text>
+    <View style={styles.container}>
+      <Text style={styles.title}>Select a Recipe</Text>
+      <Text style={styles.subtitle}>Choose one to generate the full recipe</Text>
 
       <BottomSheetFlatList
         data={RecipeOption}
@@ -97,35 +148,104 @@ export default function RecipeOptionList({ RecipeOption }) {
         renderItem={({ item, index }) => (
           <TouchableOpacity
             onPress={() => onRecipeOptionSelect(item)}
-            style={{
-              padding: 18,
-              borderWidth: 1.5,
-              borderRadius: 20,
-              marginTop: 15,
-              backgroundColor: Colors.WHITE,
-              borderColor: Colors.SECONDARY,
-              elevation: 2,
-              shadowColor: '#000',
-              shadowOffset: { width: 0, height: 2 },
-              shadowOpacity: 0.1,
-              shadowRadius: 4,
-            }}
+            style={styles.optionCard}
+            activeOpacity={0.7}
           >
-            <Text
-              style={{
-                fontWeight: "bold",
-                fontSize: 18,
-                color: Colors.PRIMARY
-              }}
-            >
-              {item?.recipeName}
-            </Text>
-            <Text style={{ color: Colors.GRAY, marginTop: 5, fontSize: 14 }}>{item?.description}</Text>
+            <View style={styles.optionNumberBadge}>
+              <Text style={styles.optionNumber}>{index + 1}</Text>
+            </View>
+            <View style={styles.optionContent}>
+              <View style={styles.optionTextBlock}>
+                <Text style={styles.optionName}>{item?.recipeName}</Text>
+                <Text style={styles.optionDescription} numberOfLines={2}>{item?.description}</Text>
+              </View>
+            </View>
+            <View style={styles.arrowCircle}>
+              <MaterialIcons name="arrow-forward-ios" size={14} color="#ff6a00" />
+            </View>
           </TouchableOpacity>
         )}
         contentContainerStyle={{ paddingBottom: 40 }}
+        showsVerticalScrollIndicator={false}
       />
-      <LoadingDialog loading={loading} title="Analyzing Recipe..." />
+      <LoadingDialog loading={loading} title="Creating Recipe..." />
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    marginTop: 8,
+  },
+  title: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: "#1c1c1e",
+    textAlign: 'center',
+    letterSpacing: -0.3,
+  },
+  subtitle: {
+    fontSize: 14,
+    color: "#64748b",
+    textAlign: 'center',
+    marginTop: 4,
+    marginBottom: 16,
+  },
+  optionCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    borderWidth: 1,
+    borderRadius: 16,
+    marginTop: 10,
+    backgroundColor: '#ffffff',
+    borderColor: '#f1f5f9',
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    gap: 16,
+  },
+  optionNumberBadge: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 106, 0, 0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  optionNumber: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#ff6a00',
+  },
+  optionContent: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+  },
+  optionTextBlock: {
+    flex: 1,
+  },
+  optionName: {
+    fontWeight: "700",
+    fontSize: 16,
+    color: "#1c1c1e",
+    letterSpacing: -0.2,
+    marginBottom: 4,
+  },
+  optionDescription: {
+    color: "#64748b",
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  arrowCircle: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255, 106, 0, 0.05)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+});

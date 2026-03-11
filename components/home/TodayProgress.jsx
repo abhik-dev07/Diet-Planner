@@ -4,16 +4,58 @@ import AnimatedCounter from "@/shared/AnimatedCounter";
 import Colors from "@/shared/Colors";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useConvex } from "convex/react";
-import { LinearGradient } from "expo-linear-gradient";
 import moment from "moment";
 import { useContext, useEffect, useRef, useState } from "react";
 import { Animated, StyleSheet, Text, View } from "react-native";
+import Svg, { Circle } from "react-native-svg";
 import { UserContext } from "../../context/UserContext";
 
-export default function TodayProgress() {
+const AnimatedCircle = Animated.createAnimatedComponent(Circle);
+
+function CalorieRing({ consumed, target, size = 130 }) {
+  const strokeWidth = 8;
+  const radius = (size - strokeWidth) / 2;
+  const circumference = 2 * Math.PI * radius;
+  const progress = target > 0 ? Math.min(consumed / target, 1) : 0;
+  const strokeDashoffset = circumference * (1 - progress);
+  const remaining = Math.max(target - consumed, 0);
+
+  return (
+    <View style={styles.ringContainer}>
+      <Svg width={size} height={size} style={{ transform: [{ rotate: '-90deg' }] }}>
+        <Circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          stroke="#f1f5f9"
+          strokeWidth={strokeWidth}
+          fill="none"
+        />
+        <Circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          stroke="#ff6a00"
+          strokeWidth={strokeWidth}
+          fill="none"
+          strokeDasharray={circumference}
+          strokeDashoffset={strokeDashoffset}
+          strokeLinecap="round"
+        />
+      </Svg>
+      <View style={styles.ringCenter}>
+        <Text style={styles.remainingValueRing}>{remaining.toLocaleString()}</Text>
+        <Text style={styles.remainingLabel}>kcal left</Text>
+      </View>
+    </View>
+  );
+}
+
+export default function TodayProgress({ selectedDate, variant = 'light' }) {
   const { user } = useContext(UserContext);
   const convex = useConvex();
   const { refreshData } = useContext(RefreshDataContext);
+  const isDark = variant === 'dark';
 
   const [consumed, setConsumed] = useState({
     calories: 0,
@@ -35,131 +77,165 @@ export default function TodayProgress() {
     if (user) {
       FetchConsumedMetrics();
     }
-  }, [user, refreshData]);
+  }, [user, refreshData, selectedDate]);
 
   const FetchConsumedMetrics = async () => {
-    const result = await convex.query(api.MealPlan.GetTotalConsumedMetrics, {
-      date: moment().format("DD/MM/YYYY"),
-      uid: user?._id,
-    });
+    try {
+      if (!user?._id) return;
+      
+      const result = await convex.query(api.MealPlan.GetTotalConsumedMetrics, {
+        date: selectedDate ?? moment().format("DD/MM/YYYY"),
+        uid: user?._id,
+      });
 
-    if (result) {
-      setConsumed(result);
-      animateAll(result);
+      if (result) {
+        setConsumed(result);
+        animateAll(result);
+      }
+    } catch (error) {
+      console.error("Error in FetchConsumedMetrics:", error);
     }
   };
 
   const animateAll = (data) => {
-    const animations = Object.keys(data).map((key) => {
-      const target = user?.[key === 'proteins' ? 'proteins' : key] || 1;
-      const percentage = Math.min((data[key] / target) * 100, 100);
-      return Animated.timing(animatedValues[key], {
-        toValue: percentage,
-        duration: 800,
-        useNativeDriver: false,
-      });
-    });
-    Animated.parallel(animations).start();
+    if (!data || typeof data !== 'object') return;
+
+    const keys = ['calories', 'proteins', 'carbs', 'fats', 'fiber'];
+    const animations = keys.map((key) => {
+      const targetValue = user?.[key] || (key === 'calories' ? 2000 : 1);
+      const progressValue = data[key] || 0;
+      const percentage = Math.min((progressValue / targetValue) * 100, 100);
+      
+      if (animatedValues[key]) {
+        return Animated.timing(animatedValues[key], {
+          toValue: percentage,
+          duration: 1000,
+          useNativeDriver: false,
+        });
+      }
+      return null;
+    }).filter(anim => anim !== null);
+
+    if (animations.length > 0) {
+      Animated.parallel(animations).start();
+    }
   };
 
-  const MacroProgress = ({ label, consumed, target, color, animValue, icon, unit = "g" }) => {
+  const ProgressBar = ({ label, consumed, target, animValue }) => {
     const width = animValue.interpolate({
       inputRange: [0, 100],
       outputRange: ["0%", "100%"],
     });
 
     return (
-      <View style={styles.macroContainer}>
-        <View style={styles.macroHeader}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
-            <MaterialCommunityIcons name={icon} size={18} color={color} />
-            <Text style={styles.macroLabel}>{label}</Text>
-          </View>
-          <Text style={styles.macroValue}>
-            {consumed}/{target}{unit}
-          </Text>
+      <View style={styles.progressBarWrapper}>
+        <View style={styles.progressHeader}>
+          <Text style={styles.progressLabel}>{label}</Text>
+          <Text style={styles.progressValue}>{consumed}g / {target}g</Text>
         </View>
-        <View style={styles.progressBarBg}>
-          <Animated.View style={[styles.progressBarFill, { width, backgroundColor: color }]}>
-            <LinearGradient
-              colors={[color, color + '99']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={{ flex: 1, borderRadius: 99 }}
-            />
-          </Animated.View>
+        <View style={styles.barContainer}>
+          <View style={styles.barBg}>
+             <Animated.View style={[styles.barFill, { width, backgroundColor: '#ff6a00' }]} />
+          </View>
         </View>
       </View>
     );
   };
 
-  return (
-    <View style={styles.container}>
-      <View style={styles.header}>
-        <View>
-          <Text style={styles.title}>Today's Progress</Text>
-          <Text style={styles.subtitle}>{moment().format("MMMM DD, dddd")}</Text>
-        </View>
-        {/* <View style={styles.maintenanceBadge}>
-          <Text style={styles.maintenanceText}>Target BMR: {user?.bmr || 0}</Text>
-        </View> */}
-      </View>
+  const CalorieBar = () => {
+    const width = animatedValues.calories.interpolate({
+      inputRange: [0, 100],
+      outputRange: ["0%", "100%"],
+    });
 
-      <View style={styles.mainCalorieCard}>
-        <LinearGradient
-          colors={[Colors.PRIMARY, Colors.BLUE]}
-          style={styles.calorieGradient}
-        >
-          <View style={styles.calorieInfo}>
-            <MaterialCommunityIcons name="fire" size={40} color={Colors.WHITE} />
+    return (
+      <View style={{ marginTop: 8 }}>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
+          <Text style={{ color: '#94a3b8', fontSize: 13, fontWeight: '500' }}>Calories</Text>
+          <Text style={{ color: '#ffffff', fontSize: 13, fontWeight: '700' }}>
+            {Math.round(consumed.calories)} / {user?.calories || 2100} kcal
+          </Text>
+        </View>
+        <View style={{ height: 8, backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 4, overflow: 'hidden' }}>
+          <Animated.View style={{ height: '100%', width, backgroundColor: '#ff6a00', borderRadius: 4 }} />
+        </View>
+      </View>
+    );
+  };
+
+  if (isDark) {
+    return (
+      <View style={styles.darkCard}>
+        <Text style={styles.darkTitle}>Daily Nutrition Status</Text>
+        
+        <View style={{ gap: 20 }}>
+          <CalorieBar />
+
+          <View style={styles.darkMacroGrid}>
             <View>
-              <AnimatedCounter
-                targetValue={consumed.calories}
-                suffix={` / ${user?.calories} kcal`}
-                style={styles.calorieCounter}
-              />
-              <Text style={styles.calorieLabel}>Calories Consumed</Text>
+              <Text style={styles.darkMacroLabel}>PROTEIN</Text>
+              <Text style={styles.darkMacroValue}>{Math.round(consumed.proteins)}g <Text style={styles.darkMacroTarget}>/ {user?.proteins || 120}g</Text></Text>
+            </View>
+            <View>
+              <Text style={styles.darkMacroLabel}>CARBS</Text>
+              <Text style={styles.darkMacroValue}>{Math.round(consumed.carbs)}g <Text style={styles.darkMacroTarget}>/ {user?.carbs || 250}g</Text></Text>
+            </View>
+            <View>
+              <Text style={styles.darkMacroLabel}>FATS</Text>
+              <Text style={styles.darkMacroValue}>{Math.round(consumed.fats)}g <Text style={styles.darkMacroTarget}>/ {user?.fats || 70}g</Text></Text>
             </View>
           </View>
-          <View style={styles.maintenanceInfo}>
-            <Text style={styles.maintenanceSubText}>Daily Maintenance: {user?.maintenance} kcal</Text>
-          </View>
-        </LinearGradient>
+        </View>
       </View>
+    );
+  }
 
-      <View style={styles.macrosGrid}>
-        <MacroProgress
-          label="Protein"
-          consumed={consumed.proteins}
-          target={user?.proteins || 0}
-          color={Colors.RED}
-          animValue={animatedValues.proteins}
-          icon="dumbbell"
-        />
-        <MacroProgress
-          label="Carbs"
-          consumed={consumed.carbs}
-          target={user?.carbs || 0}
-          color={Colors.BLUE}
-          animValue={animatedValues.carbs}
-          icon="barley"
-        />
-        <MacroProgress
-          label="Fats"
-          consumed={consumed.fats}
-          target={user?.fats || 0}
-          color={Colors.YELLOW || '#FFD700'}
-          animValue={animatedValues.fats}
-          icon="water-outline"
-        />
-        <MacroProgress
-          label="Fiber"
-          consumed={consumed.fiber}
-          target={user?.fiber || 0}
-          color={Colors.GREEN}
-          animValue={animatedValues.fiber}
-          icon="leaf"
-        />
+  return (
+    <View style={styles.container}>
+      <View style={styles.summaryCard}>
+        {/* Header inside card */}
+        <View style={styles.headerRowInside}>
+          <Text style={styles.cardTitle}>Daily Summary</Text>
+          <Text style={styles.todayLabel}>Today</Text>
+        </View>
+
+        <View style={styles.contentWrap}>
+          {/* Centered Calorie Ring on Mobile */}
+          <View style={styles.ringCenterWrap}>
+            <CalorieRing
+              consumed={consumed.calories}
+              target={user?.calories || 2000}
+            />
+          </View>
+
+          {/* Macro Progress Bars below */}
+          <View style={styles.barsContainer}>
+            <ProgressBar
+              label="Protein"
+              consumed={consumed.proteins}
+              target={user?.proteins || 100}
+              animValue={animatedValues.proteins}
+            />
+            <ProgressBar
+              label="Carbs"
+              consumed={consumed.carbs}
+              target={user?.carbs || 200}
+              animValue={animatedValues.carbs}
+            />
+            <ProgressBar
+              label="Fats"
+              consumed={consumed.fats}
+              target={user?.fats || 60}
+              animValue={animatedValues.fats}
+            />
+            <ProgressBar
+              label="Fiber"
+              consumed={consumed.fiber}
+              target={user?.fiber || 30}
+              animValue={animatedValues.fiber}
+            />
+          </View>
+        </View>
       </View>
     </View>
   );
@@ -167,107 +243,144 @@ export default function TodayProgress() {
 
 const styles = StyleSheet.create({
   container: {
-    marginTop: 20,
-    padding: 20,
-    backgroundColor: Colors.WHITE,
-    borderRadius: 20,
-    elevation: 5,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 10,
+    paddingVertical: 8,
   },
-  header: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
-    marginBottom: 20,
+  summaryCard: {
+    backgroundColor: '#ffffff',
+    borderRadius: 24,
+    padding: 24,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 106, 0, 0.05)',
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.04,
+    shadowRadius: 12,
   },
-  title: {
-    fontSize: 22,
-    fontWeight: "bold",
-    color: Colors.DARK,
+  darkCard: {
+    backgroundColor: '#1c1c1e',
+    borderRadius: 24,
+    padding: 24,
+    elevation: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.2,
+    shadowRadius: 20,
   },
-  subtitle: {
-    fontSize: 14,
-    color: Colors.GRAY,
-    marginTop: 2,
+  darkTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#ffffff',
+    marginBottom: 16,
   },
-  maintenanceBadge: {
-    backgroundColor: Colors.SECONDARY,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 12,
-  },
-  maintenanceText: {
-    fontSize: 12,
-    fontWeight: "600",
-    color: Colors.PRIMARY,
-  },
-  mainCalorieCard: {
-    borderRadius: 15,
-    overflow: "hidden",
-    marginBottom: 25,
-  },
-  calorieGradient: {
-    padding: 20,
-  },
-  calorieInfo: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 15,
-  },
-  calorieCounter: {
-    fontSize: 24,
-    fontWeight: "bold",
-    color: Colors.WHITE,
-  },
-  calorieLabel: {
-    color: Colors.WHITE,
-    opacity: 0.9,
-    fontSize: 14,
-  },
-  maintenanceInfo: {
-    marginTop: 10,
+  darkMacroGrid: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingTop: 16,
     borderTopWidth: 1,
-    borderTopColor: 'rgba(255,255,255,0.2)',
-    paddingTop: 10,
+    borderTopColor: 'rgba(255,255,255,0.1)',
   },
-  maintenanceSubText: {
-    color: Colors.WHITE,
-    fontSize: 12,
+  darkMacroLabel: {
+    fontSize: 10,
+    color: '#94a3b8',
+    fontWeight: '700',
+    letterSpacing: 1,
+    marginBottom: 4,
+  },
+  darkMacroValue: {
+    fontSize: 16,
+    fontWeight: '900',
+    color: '#ffffff',
+  },
+  darkMacroTarget: {
+    fontSize: 11,
+    fontWeight: '400',
+    color: '#64748b',
+  },
+  headerRowInside: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  cardTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#1c1c1e',
+    margin: 0,
+  },
+  todayLabel: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#ff6a00',
+  },
+  contentWrap: {
+    flexDirection: 'column',
+    alignItems: 'center',
+    gap: 24,
+  },
+  ringCenterWrap: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  ringContainer: {
+    position: 'relative',
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: 144,
+    height: 144,
+  },
+  ringCenter: {
+    position: 'absolute',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  remainingValueRing: {
+    fontSize: 32,
+    fontWeight: '900',
+    color: '#1c1c1e',
+    letterSpacing: -0.5,
+  },
+  remainingLabel: {
+    fontSize: 11,
+    color: '#94a3b8',
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    marginTop: -2,
+  },
+  barsContainer: {
+    width: '100%',
+    gap: 16,
+  },
+  progressBarWrapper: {
+    gap: 8,
+  },
+  progressHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  progressLabel: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#1c1c1e',
+  },
+  progressValue: {
+    fontSize: 14,
+    color: '#64748b',
     fontWeight: '500',
   },
-  macrosGrid: {
-    gap: 15,
+  barContainer: {
+    width: '100%',
   },
-  macroContainer: {
-    width: "100%",
-  },
-  macroHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 8,
-  },
-  macroLabel: {
-    fontSize: 15,
-    fontWeight: "600",
-    color: Colors.DARK,
-  },
-  macroValue: {
-    fontSize: 13,
-    color: Colors.GRAY,
-    fontWeight: "500",
-  },
-  progressBarBg: {
+  barBg: {
     height: 8,
-    backgroundColor: "#F0F0F0",
-    borderRadius: 99,
-    overflow: "hidden",
+    backgroundColor: '#f1f5f9',
+    borderRadius: 4,
+    overflow: 'hidden',
   },
-  progressBarFill: {
-    height: "100%",
-    borderRadius: 99,
+  barFill: {
+    height: '100%',
+    borderRadius: 4,
   },
 });

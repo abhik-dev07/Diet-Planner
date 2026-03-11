@@ -1,78 +1,38 @@
-import Colors from "@/shared/Colors";
-import { Clock01Icon, Fire02Icon } from "@hugeicons/core-free-icons";
-import { HugeiconsIcon } from "@hugeicons/react-native";
+import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { Link } from "expo-router";
 import { Image, StyleSheet, Text, View } from "react-native";
 
 export default function RecipeCard({ recipe }) {
   const recipeJson = recipe?.jsonData;
+
   return (
     <Link
       href={"/recipe-detail?recipeId=" + recipe?._id}
-      style={{
-        flex: 1,
-        margin: 5,
-      }}
+      style={styles.cardWrapper}
     >
-      <View>
-        <Image
-          source={{ uri: recipe?.imageUrl }}
-          style={{
-            width: "100%",
-            height: 100,
-            borderTopLeftRadius: 15,
-            borderTopRightRadius: 15,
-          }}
-        />
-        <View
-          style={{
-            padding: 10,
-            backgroundColor: Colors.WHITE,
-            borderBottomLeftRadius: 15,
-            borderBottomRightRadius: 15,
-          }}
-        >
-          <Text
-            style={{
-              fontSize: 17,
-              fontWeight: "bold",
-            }}
-          >
+      <View style={styles.card}>
+        <View style={styles.imageContainer}>
+          {recipe?.imageUrl ? (
+            <Image
+              source={{ uri: recipe.imageUrl }}
+              style={styles.image}
+            />
+          ) : (
+            <View style={[styles.image, styles.placeholder]}>
+              <MaterialIcons name="restaurant" size={32} color="#cbd5e1" />
+            </View>
+          )}
+        </View>
+        <View style={styles.content}>
+          <Text style={styles.recipeName} numberOfLines={1}>
             {recipe?.recipeName}
           </Text>
-          <View
-            style={[
-              styles.infoContainer,
-              {
-                justifyContent: "space-between",
-                alignItems: "center",
-                marginTop: 6,
-              },
-            ]}
-          >
-            <View style={styles.infoContainer}>
-              <HugeiconsIcon icon={Fire02Icon} color={Colors.RED} size={18} />
-              <Text
-                style={{
-                  fontSize: 14,
-                  color: Colors.GRAY,
-                }}
-              >
-                {recipeJson?.calories} Kcal
-              </Text>
-            </View>
 
-            <View style={styles.infoContainer}>
-              <HugeiconsIcon icon={Clock01Icon} color={Colors.RED} size={18} />
-              <Text
-                style={{
-                  fontSize: 14,
-                  color: Colors.GRAY,
-                }}
-              >
-                {recipeJson?.cookTime} Min
-              </Text>
-            </View>
+          <View style={styles.footer}>
+            <MaterialIcons name="bolt" color="#94a3b8" size={14} />
+            <Text style={styles.metaText}>
+              {recipeJson?.calories} kcal • {recipeJson?.cookTime || 15} min
+            </Text>
           </View>
         </View>
       </View>
@@ -81,10 +41,48 @@ export default function RecipeCard({ recipe }) {
 }
 
 const styles = StyleSheet.create({
-  infoContainer: {
-    display: "flex",
+  cardWrapper: {
+    flex: 1,
+    marginHorizontal: 8,
+    marginVertical: 10,
+  },
+  card: {
+    gap: 8,
+  },
+  imageContainer: {
+    aspectRatio: 1,
+    borderRadius: 16,
+    overflow: 'hidden',
+    backgroundColor: '#F3F4F6',
+  },
+  image: {
+    width: "100%",
+    height: "100%",
+    resizeMode: 'cover',
+  },
+  placeholder: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    height: '100%',
+  },
+  content: {
+    paddingHorizontal: 2,
+  },
+  recipeName: {
+    fontSize: 15,
+    fontWeight: "800",
+    color: '#1c1c1e',
+    letterSpacing: -0.3,
+  },
+  footer: {
     flexDirection: "row",
-    gap: 2,
     alignItems: "center",
+    gap: 4,
+    marginTop: 2,
+  },
+  metaText: {
+    fontSize: 12,
+    color: '#94a3b8',
+    fontWeight: "500",
   },
 });

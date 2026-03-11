@@ -1,26 +1,22 @@
-import Button from "@/components/shared/Button";
-import Input from "@/components/shared/Input";
 import { UserContext } from "@/context/UserContext";
 import { api } from "@/convex/_generated/api";
-import Colors from "@/shared/Colors";
 import {
-  FontAwesome6,
-  Ionicons,
-  MaterialCommunityIcons,
+  MaterialIcons
 } from "@expo/vector-icons";
 import { useConvex, useMutation } from "convex/react";
 import { useRouter } from "expo-router";
 import { useContext, useEffect, useState } from "react";
 import {
   Alert,
-  Image,
   Keyboard,
   KeyboardAvoidingView,
   LayoutAnimation,
   Platform,
   ScrollView,
+  StatusBar,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   TouchableWithoutFeedback,
   UIManager,
@@ -167,9 +163,6 @@ export default function Preferance() {
         maintenance: Number(metrics.maintenance),
       };
 
-      console.log("Calculated Data to Save:", data);
-      console.log("Fitness Summary:", metrics.summary);
-
       await UpdateUserPref(data);
 
       const latestUser = await convex.query(api.Users.GetUserByEmail, {
@@ -203,342 +196,213 @@ export default function Preferance() {
     };
   }, []);
 
+  const goalOptions = [
+    {
+      id: "Weight Loss",
+      title: "Weight Loss",
+      sub: "Focus on calorie deficit",
+      icon: "trending-down",
+    },
+    {
+      id: "Muscle Gain",
+      title: "Muscle Gain",
+      sub: "High protein & strength",
+      icon: "fitness-center",
+    },
+    {
+      id: "Weight Gain",
+      title: "Weight Gain",
+      sub: "Bulk up safely",
+      icon: "trending-up",
+    },
+  ];
+
+  const activityOptions = [
+    { id: "Sedentary", title: "Sedentary (Office job)" },
+    { id: "Lightly Active", title: "Lightly Active" },
+    { id: "Moderately Active", title: "Moderately Active (3-5 days/wk)" },
+    { id: "Very Active", title: "Very Active" },
+    { id: "Extra Active", title: "Extra Active (Athlete)" },
+  ];
+
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === "ios" ? "padding" : "height"}
-      style={{ flex: 1, backgroundColor: Colors.SECONDARY }}
+      style={styles.container}
     >
+      <StatusBar barStyle="dark-content" backgroundColor="#f8f7f5" />
       <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
         <ScrollView
           style={{ flex: 1 }}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
-          contentContainerStyle={{ flexGrow: 1, padding: 20 }}
+          contentContainerStyle={styles.scrollContent}
         >
-          <View
-            style={{
-              display: "flex",
-              flexDirection: "row",
-              alignItems: "center",
-              justifyContent: "center",
-            }}
-          >
-            <View
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-              }}
-            >
-              <Image
-                source={require("../../assets/images/logo.png")}
-                style={{
-                  height: 100,
-                  width: 100,
-                  marginTop: 8,
-                }}
-              />
-              <Text
-                style={{
-                  color: Colors.PRIMARY,
-                  textAlign: "center",
-                  fontSize: 20,
-                  fontWeight: "bold",
-                }}
-              >
-                Set Your Preferences
-              </Text>
+          {/* Header */}
+          <View style={styles.header}>
+            <View style={styles.logoContainer}>
+              <MaterialIcons name="restaurant-menu" size={36} color="#ff6a00" />
             </View>
+            <Text style={styles.headerLabel}>SET YOUR PREFERENCES</Text>
+            <Text style={styles.headerTitle}>Tell us about yourself</Text>
+            <Text style={styles.headerSubtitle}>
+              This helps us create your personalized meal plan
+            </Text>
           </View>
-          <Text
-            style={{
-              textAlign: "center",
-              fontSize: 30,
-              fontWeight: "bold",
-              marginTop: 30,
-            }}
-          >
-            Tell us about yourself
-          </Text>
-          <Text
-            style={{
-              textAlign: "center",
-              fontSize: 16,
-              color: Colors.GRAY,
-            }}
-          >
-            This help us create your personalized meal plan
-          </Text>
-          <View
-            style={{
-              display: "flex",
-              flexDirection: "row",
-              gap: 10,
-              marginTop: 15,
-            }}
-          >
-            <View style={{ display: "flex", width: "32%" }}>
-              <Input
-                placeholder={"e.g 70"}
-                lable="Weight (kg)"
-                onChangeText={setWeight}
-                keyboardType="numeric"
-              />
+
+          {/* Body Metrics Card */}
+          <View style={styles.card}>
+            <View style={styles.cardHeader}>
+              <MaterialIcons name="straighten" size={20} color="#ff6a00" />
+              <Text style={styles.cardTitle}>Body Metrics</Text>
             </View>
-            <View style={{ display: "flex", width: "32%" }}>
-              <Input
-                placeholder={"e.g 172 or 5.8"}
-                lable="Height (cm or ft.in)"
-                onChangeText={setHeight}
-                keyboardType="numeric"
-              />
-            </View>
-            <View style={{ display: "flex", width: "32%" }}>
-              <Input
-                placeholder={"e.g 23"}
-                lable="Age"
-                onChangeText={setAge}
-                keyboardType="numeric"
-              />
+            <View style={styles.metricsGrid}>
+              <View style={styles.metricItem}>
+                <Text style={styles.metricLabel}>WEIGHT</Text>
+                <TextInput
+                  style={styles.metricInput}
+                  placeholder="70"
+                  placeholderTextColor="#cbd5e1"
+                  keyboardType="numeric"
+                  onChangeText={setWeight}
+                />
+                <Text style={styles.metricUnit}>kg</Text>
+              </View>
+              <View style={styles.metricItem}>
+                <Text style={styles.metricLabel}>HEIGHT</Text>
+                <TextInput
+                  style={styles.metricInput}
+                  placeholder="175"
+                  placeholderTextColor="#cbd5e1"
+                  keyboardType="numeric"
+                  onChangeText={setHeight}
+                />
+                <Text style={styles.metricUnit}>cm</Text>
+              </View>
+              <View style={styles.metricItem}>
+                <Text style={styles.metricLabel}>AGE</Text>
+                <TextInput
+                  style={styles.metricInput}
+                  placeholder="28"
+                  placeholderTextColor="#cbd5e1"
+                  keyboardType="numeric"
+                  onChangeText={setAge}
+                />
+                <Text style={styles.metricUnit}>yrs</Text>
+              </View>
             </View>
           </View>
 
-          <View
-            style={{
-              marginTop: 20,
-            }}
-          >
-            <Text
-              style={{
-                fontWeight: "medium",
-                fontSize: 18,
-              }}
-            >
-              Gender
-            </Text>
-            <View style={{ display: "flex", flexDirection: "row", gap: 10 }}>
+          {/* Gender Card */}
+          <View style={styles.card}>
+            <View style={styles.cardHeader}>
+              <MaterialIcons name="wc" size={20} color="#ff6a00" />
+              <Text style={styles.cardTitle}>Gender</Text>
+            </View>
+            <View style={styles.genderGrid}>
               <TouchableOpacity
+                style={[styles.genderButton, gender === "Male" && styles.genderButtonActive]}
                 onPress={() => setGender("Male")}
-                style={{
-                  borderWidth: 1,
-                  borderColor: gender == "Male" ? Colors.BLUE : Colors.GRAY,
-                  borderRadius: 10,
-                  padding: 15,
-                  flex: 1,
-                  alignItems: "center",
-                }}
+                activeOpacity={0.8}
               >
-                <Ionicons name="male-outline" size={40} color={Colors.BLUE} />
-                <Text
-                  style={{
-                    textAlign: "center",
-                    marginTop: 5,
-                    fontWeight: "500",
-                  }}
-                >
+                <MaterialIcons 
+                  name="male" 
+                  size={32} 
+                  color={gender === "Male" ? "#ff6a00" : "#94a3b8"} 
+                />
+                <Text style={[styles.genderText, gender === "Male" && styles.genderTextActive]}>
                   Male
                 </Text>
               </TouchableOpacity>
               <TouchableOpacity
+                style={[styles.genderButton, gender === "Female" && styles.genderButtonActive]}
                 onPress={() => setGender("Female")}
-                style={{
-                  borderWidth: 1,
-                  borderColor: gender == "Female" ? Colors.PINK : Colors.GRAY,
-                  borderRadius: 10,
-                  padding: 15,
-                  flex: 1,
-                  alignItems: "center",
-                }}
+                activeOpacity={0.8}
               >
-                <Ionicons name="female-outline" size={40} color={Colors.PINK} />
-                <Text
-                  style={{
-                    textAlign: "center",
-                    marginTop: 5,
-                    fontWeight: "500",
-                  }}
-                >
+                <MaterialIcons 
+                  name="female" 
+                  size={32} 
+                  color={gender === "Female" ? "#ff6a00" : "#94a3b8"} 
+                />
+                <Text style={[styles.genderText, gender === "Female" && styles.genderTextActive]}>
                   Female
                 </Text>
               </TouchableOpacity>
             </View>
           </View>
 
-          <View style={{ marginTop: 15 }}>
-            <Text style={{ fontWeight: "medium", fontSize: 18 }}>
-              What's Your Goal?
-            </Text>
-            <TouchableOpacity
-              onPress={() => setGoal("Weight Loss")}
-              style={[
-                styles.goalContainer,
-                {
-                  borderColor:
-                    goal == "Weight Loss" ? Colors.PRIMARY : Colors.GRAY,
-                },
-              ]}
-            >
-              <View
-                style={{
-                  backgroundColor: "#fae3e5",
-                  borderRadius: 99,
-                  height: 35,
-                  width: 35,
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
-              >
-                <FontAwesome6
-                  name="weight-scale"
-                  size={18}
-                  color={Colors.RED}
-                />
-              </View>
-              <View>
-                <Text style={styles.goalText}>Weight Loss</Text>
-                <Text style={styles.goalSubText}>
-                  Reduce body fat & get leaner
-                </Text>
-              </View>
-            </TouchableOpacity>
-            <TouchableOpacity
-              onPress={() => setGoal("Weight Gain")}
-              style={[
-                styles.goalContainer,
-                {
-                  borderColor:
-                    goal == "Weight Gain" ? Colors.PRIMARY : Colors.GRAY,
-                },
-              ]}
-            >
-              <View
-                style={{
-                  backgroundColor: "#e3e9ff",
-                  borderRadius: 99,
-                  height: 35,
-                  width: 35,
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
-              >
-                <MaterialCommunityIcons
-                  name="silverware-fork-knife"
-                  size={19}
-                  color={Colors.BLUE}
-                />
-              </View>
-              <View>
-                <Text style={styles.goalText}>Weight Gain</Text>
-                <Text style={styles.goalSubText}>
-                  Increase healthy body mass
-                </Text>
-              </View>
-            </TouchableOpacity>
-            <TouchableOpacity
-              onPress={() => setGoal("Muscle Gain")}
-              style={[
-                styles.goalContainer,
-                {
-                  borderColor:
-                    goal == "Muscle Gain" ? Colors.PRIMARY : Colors.GRAY,
-                },
-              ]}
-            >
-              <View
-                style={{
-                  backgroundColor: "#dcfae7",
-                  borderRadius: 99,
-                  height: 35,
-                  width: 35,
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
-              >
-                <FontAwesome6 name="dumbbell" size={18} color={Colors.GREEN} />
-              </View>
-              <View>
-                <Text style={styles.goalText}>Muscle Gain</Text>
-                <Text style={styles.goalSubText}>
-                  Build Muscle & get Stronger
-                </Text>
-              </View>
-            </TouchableOpacity>
+          {/* Goal Card */}
+          <View style={styles.card}>
+            <View style={styles.cardHeader}>
+              <MaterialIcons name="emoji-events" size={20} color="#ff6a00" />
+              <Text style={styles.cardTitle}>What is your goal?</Text>
+            </View>
+            <View style={styles.optionsList}>
+              {goalOptions.map((option) => (
+                <TouchableOpacity
+                  key={option.id}
+                  style={[styles.optionItem, goal === option.id && styles.optionItemActive]}
+                  onPress={() => setGoal(option.id)}
+                  activeOpacity={0.8}
+                >
+                  <View style={[styles.optionIconContainer, goal === option.id && styles.optionIconContainerActive]}>
+                    <MaterialIcons 
+                      name={option.icon} 
+                      size={20} 
+                      color={goal === option.id ? "#ffffff" : "#ff6a00"} 
+                    />
+                  </View>
+                  <View style={styles.optionContent}>
+                    <Text style={[styles.optionTitle, goal === option.id && styles.optionTitleActive]}>
+                      {option.title}
+                    </Text>
+                    <Text style={styles.optionSubtitle}>{option.sub}</Text>
+                  </View>
+                  <View style={[styles.optionRadio, goal === option.id && styles.optionRadioActive]}>
+                    {goal === option.id && <MaterialIcons name="check" size={12} color="#ffffff" />}
+                  </View>
+                </TouchableOpacity>
+              ))}
+            </View>
           </View>
 
-          <View style={{ marginTop: 20 }}>
-            <Text style={{ fontWeight: "medium", fontSize: 18 }}>
-              Activity Level
-            </Text>
-            {[
-              {
-                id: "Sedentary",
-                title: "Sedentary",
-                sub: "Office job, little/no exercise",
-                icon: "briefcase-outline",
-              },
-              {
-                id: "Lightly Active",
-                title: "Lightly Active",
-                sub: "Light exercise 1-3 days/week",
-                icon: "walk-outline",
-              },
-              {
-                id: "Moderately Active",
-                title: "Moderately Active",
-                sub: "Moderate exercise 3-5 days/week",
-                icon: "fitness-outline",
-              },
-              {
-                id: "Very Active",
-                title: "Very Active",
-                sub: "Hard exercise 6-7 days/week",
-                icon: "flame-outline",
-              },
-              {
-                id: "Extra Active",
-                title: "Extra Active",
-                sub: "Physical job + 2x daily training",
-                icon: "flash-outline",
-              },
-            ].map((item) => (
-              <TouchableOpacity
-                key={item.id}
-                onPress={() => setActivityLevel(item.id)}
-                style={[
-                  styles.goalContainer,
-                  {
-                    borderColor:
-                      activityLevel == item.id ? Colors.PRIMARY : Colors.GRAY,
-                  },
-                ]}
-              >
-                <View
-                  style={{
-                    backgroundColor: "#e0f2ff",
-                    borderRadius: 99,
-                    height: 35,
-                    width: 35,
-                    alignItems: "center",
-                    justifyContent: "center",
-                  }}
+          {/* Activity Level Card */}
+          <View style={styles.card}>
+            <View style={styles.cardHeader}>
+              <MaterialIcons name="bolt" size={20} color="#ff6a00" />
+              <Text style={styles.cardTitle}>Activity Level</Text>
+            </View>
+            <View style={styles.activityList}>
+              {activityOptions.map((item) => (
+                <TouchableOpacity
+                  key={item.id}
+                  style={styles.activityItem}
+                  onPress={() => setActivityLevel(item.id)}
+                  activeOpacity={0.7}
                 >
-                  <Ionicons name={item.icon} size={20} color={Colors.BLUE} />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.goalText}>{item.title}</Text>
-                  <Text style={styles.goalSubText}>{item.sub}</Text>
-                </View>
-              </TouchableOpacity>
-            ))}
+                  <View style={[styles.radioDot, activityLevel === item.id && styles.radioDotActive]}>
+                    {activityLevel === item.id && <View style={styles.radioDotInner} />}
+                  </View>
+                  <Text style={[styles.activityText, activityLevel === item.id && styles.activityTextActive]}>
+                    {item.title}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
           </View>
-          <View style={{ marginTop: 50 }}>
-            <Button
-              title={"Continue"}
-              onPress={OnContinue}
-              icon="arrow-forward"
-            />
-          </View>
-          <LoadingDialog loading={loading} title="Loading" />
+
+          {/* Continue Button */}
+          <TouchableOpacity 
+            style={styles.footerButton}
+            onPress={OnContinue}
+            activeOpacity={0.9}
+            disabled={loading}
+          >
+            <Text style={styles.footerButtonText}>Continue</Text>
+            <MaterialIcons name="arrow-forward" size={20} color="#ffffff" />
+          </TouchableOpacity>
+
+          <LoadingDialog loading={loading} title="Setting up your plan" />
         </ScrollView>
       </TouchableWithoutFeedback>
     </KeyboardAvoidingView>
@@ -546,21 +410,255 @@ export default function Preferance() {
 }
 
 const styles = StyleSheet.create({
-  goalContainer: {
-    display: "flex",
-    flexDirection: "row",
-    gap: 20,
-    padding: 15,
+  container: {
+    flex: 1,
+    backgroundColor: '#f8f7f5',
+  },
+  scrollContent: {
+    flexGrow: 1,
+    paddingBottom: 40,
+  },
+  header: {
+    paddingTop: 48,
+    paddingHorizontal: 24,
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  logoContainer: {
+    width: 64,
+    height: 64,
+    backgroundColor: '#ffffff',
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 24,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.05,
+    shadowRadius: 10,
+    elevation: 4,
+  },
+  headerLabel: {
+    color: '#ff6a00',
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: 2,
+    marginBottom: 8,
+  },
+  headerTitle: {
+    fontSize: 28,
+    fontWeight: '800',
+    textAlign: 'center',
+    color: '#111827',
+    marginBottom: 8,
+  },
+  headerSubtitle: {
+    fontSize: 15,
+    color: '#64748b',
+    textAlign: 'center',
+    marginBottom: 16,
+  },
+  card: {
+    backgroundColor: '#ffffff',
+    marginHorizontal: 16,
+    marginBottom: 16,
+    padding: 24,
+    borderRadius: 20,
     borderWidth: 1,
-    borderColor: Colors.GRAY,
-    borderRadius: 15,
-    marginTop: 10,
+    borderColor: 'rgba(255, 106, 0, 0.05)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.03,
+    shadowRadius: 8,
+    elevation: 2,
   },
-  goalText: {
-    fontWeight: "bold",
-    fontSize: 20,
+  cardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 20,
+    gap: 10,
   },
-  goalSubText: {
-    color: Colors.GRAY,
+  cardTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#111827',
+  },
+  metricsGrid: {
+    flexDirection: 'row',
+    gap: 16,
+  },
+  metricItem: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  metricLabel: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#94a3b8',
+    marginBottom: 8,
+    letterSpacing: 0.5,
+  },
+  metricInput: {
+    width: '100%',
+    backgroundColor: '#f8fafc',
+    height: 54,
+    borderRadius: 12,
+    textAlign: 'center',
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#111827',
+  },
+  metricUnit: {
+    fontSize: 10,
+    color: '#94a3b8',
+    marginTop: 4,
+    fontWeight: '500',
+  },
+  genderGrid: {
+    flexDirection: 'row',
+    gap: 16,
+  },
+  genderButton: {
+    flex: 1,
+    height: 100,
+    backgroundColor: '#f8fafc',
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: 'transparent',
+  },
+  genderButtonActive: {
+    backgroundColor: 'rgba(255, 106, 0, 0.08)',
+    borderColor: '#ff6a00',
+  },
+  genderText: {
+    marginTop: 8,
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#94a3b8',
+  },
+  genderTextActive: {
+    color: '#ff6a00',
+  },
+  optionsList: {
+    gap: 12,
+  },
+  optionItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    backgroundColor: '#f8fafc',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'transparent',
+  },
+  optionItemActive: {
+    backgroundColor: 'rgba(255, 106, 0, 0.05)',
+    borderColor: '#ff6a00',
+  },
+  optionIconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: 'rgba(255, 106, 0, 0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 16,
+  },
+  optionIconContainerActive: {
+    backgroundColor: '#ff6a00',
+  },
+  optionContent: {
+    flex: 1,
+  },
+  optionTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#111827',
+  },
+  optionTitleActive: {
+    color: '#111827',
+  },
+  optionSubtitle: {
+    fontSize: 12,
+    color: '#94a3b8',
+    marginTop: 2,
+  },
+  optionRadio: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    borderWidth: 2,
+    borderColor: 'rgba(255, 106, 0, 0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  optionRadioActive: {
+    backgroundColor: '#ff6a00',
+    borderColor: '#ff6a00',
+  },
+  activityList: {
+    gap: 16,
+  },
+  activityItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  radioDot: {
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    borderWidth: 2,
+    borderColor: '#e2e8f0',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  radioDotActive: {
+    borderColor: '#ff6a00',
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    borderWidth: 2,
+    shadowColor: '#ff6a00',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+  },
+  radioDotInner: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: '#ff6a00',
+  },
+  activityText: {
+    fontSize: 15,
+    color: '#64748b',
+    flex: 1,
+  },
+  activityTextActive: {
+    color: '#111827',
+    fontWeight: '700',
+  },
+  footerButton: {
+    margin: 16,
+    backgroundColor: '#ff6a00',
+    height: 64,
+    borderRadius: 16,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 10,
+    shadowColor: '#ff6a00',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.3,
+    shadowRadius: 15,
+    elevation: 8,
+  },
+  footerButtonText: {
+    color: '#ffffff',
+    fontSize: 18,
+    fontWeight: '800',
   },
 });

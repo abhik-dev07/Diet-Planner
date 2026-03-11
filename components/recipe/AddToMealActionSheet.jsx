@@ -1,24 +1,19 @@
 import { RefreshDataContext } from "@/context/RefreshDataContex";
 import { UserContext } from "@/context/UserContext";
 import { api } from "@/convex/_generated/api";
-import Colors from "@/shared/Colors";
-import {
-  Coffee02Icon,
-  Moon02Icon,
-  Sun03Icon,
-} from "@hugeicons/core-free-icons";
-import { HugeiconsIcon } from "@hugeicons/react-native";
+import MaterialIcons from "@expo/vector-icons/MaterialIcons";
+import { BottomSheetFlatList } from "@gorhom/bottom-sheet";
 import { useMutation } from "convex/react";
 import { useContext, useState } from "react";
 import {
   Alert,
   Platform,
+  StyleSheet,
   Text,
   ToastAndroid,
   TouchableOpacity,
   View
 } from "react-native";
-import Button from "../shared/Button";
 import DateSelectionCard from "../shared/DateSelectionCard";
 
 export default function AddToMealActionSheet({
@@ -30,18 +25,25 @@ export default function AddToMealActionSheet({
   const { refreshData, setRefreshData } = useContext(RefreshDataContext);
   const createMealPlan = useMutation(api.MealPlan.CreateMealPlan);
   const { user } = useContext(UserContext);
+
   const mealOption = [
     {
       title: "Breakfast",
-      icon: Coffee02Icon,
+      icon: "light-mode",
+      iconColor: "#ca8a04",
+      bgColor: "#fef9c3",
     },
     {
       title: "Lunch",
-      icon: Sun03Icon,
+      icon: "restaurant",
+      iconColor: "#ea580c",
+      bgColor: "#ffedd5",
     },
     {
       title: "Dinner",
-      icon: Moon02Icon,
+      icon: "bedtime",
+      iconColor: "#9333ea",
+      bgColor: "#f3e8ff",
     },
   ];
 
@@ -70,82 +72,155 @@ export default function AddToMealActionSheet({
   };
 
   return (
-    <View
-      style={{
-        padding: 20,
-      }}
-    >
-      <Text style={{ fontWeight: "bold", fontSize: 20, textAlign: "center" }}>
-        Add To Meal
-      </Text>
+    <View style={styles.container}>
+      <Text style={styles.title}>Add To Meal Plan</Text>
+      <Text style={styles.subtitle}>Choose a date and meal type</Text>
 
       <DateSelectionCard setSelectedDate={setSelectedDate} />
 
-      <Text
-        style={{
-          fontSize: 18,
-          fontWeight: "bold",
-          marginTop: 15,
-        }}
-      >
-        Select Meal
-      </Text>
-      <BottomSheetFlatList
-        data={mealOption}
-        numColumns={4}
-        renderItem={({ item, index }) => (
-          <TouchableOpacity
-            onPress={() => setSelectedMeal(item?.title)}
-            style={{
-              flex: 1,
-              display: "flex",
-              alignItems: "center",
-              padding: 7,
-              borderWidth: 1,
-              borderRadius: 10,
-              margin: 5,
-              borderColor:
-                selectedMeal == item.title ? Colors.PRIMARY : Colors.GRAY,
-              backgroundColor:
-                selectedMeal == item.title ? Colors.SECONDARY : Colors.WHITE,
-            }}
-          >
-            <HugeiconsIcon icon={item.icon} />
+      <Text style={styles.sectionLabel}>Select Meal</Text>
 
-            <Text
-              style={{
-                fontSize: 20,
-                fontWeight: "bold",
-              }}
+      <View style={styles.mealGrid}>
+        {mealOption.map((item) => {
+          const isSelected = selectedMeal === item.title;
+          return (
+            <TouchableOpacity
+              key={item.title}
+              onPress={() => setSelectedMeal(item.title)}
+              style={[
+                styles.mealCard,
+                isSelected && styles.mealCardSelected,
+              ]}
+              activeOpacity={0.7}
             >
-              {item.title}
-            </Text>
-          </TouchableOpacity>
-        )}
-      />
+              <View style={[styles.mealIconBg, { backgroundColor: item.bgColor }]}>
+                <MaterialIcons name={item.icon} size={24} color={item.iconColor} />
+              </View>
+              <Text style={styles.mealTitle}>
+                {item.title}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
+      </View>
 
-      <View
-        style={{
-          marginTop: 15,
-        }}
-      >
-        <Button title={"+ Add to Meal Plan"} onPress={AddToMealPlan} />
+      <View style={styles.actionsContainer}>
+        <TouchableOpacity
+          onPress={AddToMealPlan}
+          style={styles.addButton}
+          activeOpacity={0.8}
+        >
+          <Text style={styles.addButtonText}>Add to Meal Plan</Text>
+        </TouchableOpacity>
+        
         <TouchableOpacity
           onPress={() => hideActionSheet()}
-          style={{
-            padding: 15,
-          }}
+          style={styles.cancelButton}
+          activeOpacity={0.7}
         >
-          <Text
-            style={{
-              textAlign: "center",
-              fontSize: 20,
-            }}
-          >
-            Cancel
-          </Text>
+          <Text style={styles.cancelText}>Cancel</Text>
         </TouchableOpacity>
       </View>
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    paddingTop: 8,
+  },
+  title: {
+    fontWeight: "800",
+    fontSize: 22,
+    textAlign: "center",
+    color: "#1c1c1e",
+    letterSpacing: -0.5,
+    paddingHorizontal: 24,
+  },
+  subtitle: {
+    fontSize: 14,
+    color: "#64748b",
+    textAlign: 'center',
+    marginTop: 4,
+    marginBottom: 24,
+    paddingHorizontal: 24,
+  },
+  sectionLabel: {
+    fontSize: 18,
+    fontWeight: "700",
+    marginTop: 32,
+    marginBottom: 16,
+    color: "#1c1c1e",
+    paddingHorizontal: 24,
+  },
+  mealGrid: {
+    flexDirection: 'row',
+    gap: 12,
+    paddingHorizontal: 24,
+  },
+  mealCard: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    paddingVertical: 16,
+    borderWidth: 1,
+    borderRadius: 16,
+    borderColor: '#f1f5f9',
+    backgroundColor: '#ffffff',
+  },
+  mealCardSelected: {
+    borderWidth: 2,
+    borderColor: '#ff6a00',
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.05,
+    shadowRadius: 10,
+  },
+  mealIconBg: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  mealTitle: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#475569",
+  },
+  actionsContainer: {
+    marginTop: 40,
+    paddingHorizontal: 24,
+    gap: 16,
+    alignItems: 'center',
+  },
+  addButton: {
+    width: '100%',
+    height: 56,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#ff6a00',
+    borderRadius: 16,
+    shadowColor: '#ff6a00',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.4,
+    shadowRadius: 20,
+    elevation: 8,
+  },
+  addButtonText: {
+    color: '#ffffff',
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  cancelButton: {
+    paddingVertical: 8,
+  },
+  cancelText: {
+    textAlign: "center",
+    fontSize: 16,
+    color: "#94a3b8",
+    fontWeight: '600',
+  },
+});

@@ -1,17 +1,15 @@
+import Colors from "@/shared/Colors";
 import { Image, StyleSheet, Text, View } from "react-native";
 
 const EmptyRecipeState = () => {
   return (
     <View style={styles.container}>
-      <Image
-        source={require("../../assets/images/recipe.png")}
-        style={styles.image}
-        resizeMode="contain"
-      />
+      <View style={styles.emojiCircle}>
+        <Text style={styles.emoji}>👨‍🍳</Text>
+      </View>
       <Text style={styles.title}>No Recipes Generated Yet</Text>
       <Text style={styles.subtitle}>
-        Start by generating your recipes with AI so you can easily access them
-        later!
+        Your AI-crafted culinary creations will appear right here.
       </Text>
     </View>
   );
@@ -19,28 +17,41 @@ const EmptyRecipeState = () => {
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    padding: 24,
-    backgroundColor: "#fff",
-    marginTop: 70,
+    padding: 30,
+    marginTop: 24,
+    backgroundColor: 'rgba(255, 255, 255, 0.5)',
+    minHeight: 300,
+    borderRadius: 24,
+    borderWidth: 2,
+    borderColor: '#e2e8f0',
+    borderStyle: 'dashed',
   },
-  image: {
-    width: 180,
-    height: 180,
-    marginBottom: 20,
+  emojiCircle: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: 'rgba(255, 106, 0, 0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  emoji: {
+    fontSize: 36,
   },
   title: {
-    fontSize: 22,
-    fontWeight: "bold",
-    color: "#333",
+    fontSize: 20,
+    fontWeight: "700",
+    color: "#1c1c1e",
     marginBottom: 8,
   },
   subtitle: {
-    fontSize: 16,
-    color: "#666",
+    fontSize: 14,
+    color: "#64748b",
     textAlign: "center",
+    lineHeight: 22,
+    maxWidth: 240,
   },
 });
 

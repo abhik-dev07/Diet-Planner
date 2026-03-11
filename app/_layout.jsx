@@ -19,19 +19,19 @@ export default function RootLayout() {
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <BottomSheetModalProvider>
-        <ConvexProvider client={convex}>
-          <UserContext.Provider value={{ user, setUser }}>
-            <RefreshDataContext.Provider
-              value={{ refreshData, setRefreshData }}
-            >
+      <ConvexProvider client={convex}>
+        <UserContext.Provider value={{ user, setUser }}>
+          <RefreshDataContext.Provider
+            value={{ refreshData, setRefreshData }}
+          >
+            <BottomSheetModalProvider>
               <Stack screenOptions={{ headerShown: false }}>
                 <Stack.Screen name="index" />
               </Stack>
-            </RefreshDataContext.Provider>
-          </UserContext.Provider>
-        </ConvexProvider>
-      </BottomSheetModalProvider>
+            </BottomSheetModalProvider>
+          </RefreshDataContext.Provider>
+        </UserContext.Provider>
+      </ConvexProvider>
     </GestureHandlerRootView>
   );
 }
